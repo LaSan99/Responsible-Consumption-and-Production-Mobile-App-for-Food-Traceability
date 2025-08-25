@@ -3,31 +3,38 @@ import { View, Text, TextInput, Button, Alert, StyleSheet } from "react-native";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import apiConfig from "../config/api";
+import { CommonActions } from "@react-navigation/native";
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const handleLogin = async () => {
-    try {
-      const response = await axios.post(`${apiConfig.baseURL}/auth/login`, {
-        email,
-        password,
-      });
+  try {
+    const response = await axios.post(`${apiConfig.baseURL}/auth/login`, {
+      email,
+      password,
+    });
 
-      await AsyncStorage.setItem("token", response.data.token);
+    // store token and user info
+    await AsyncStorage.setItem("token", response.data.token);
+    await AsyncStorage.setItem("user", JSON.stringify({
+      full_name: response.data.full_name,
+      role: response.data.role,
+      email
+    }));
 
-      Alert.alert("Login successful");
-
-      // Use CommonActions.reset for proper navigation reset
-      navigation.reset({
+    navigation.dispatch(
+      CommonActions.reset({
         index: 0,
         routes: [{ name: "Home" }],
-      });
-    } catch (error) {
-      Alert.alert("Error", "Invalid credentials");
-    }
-  };
+      })
+    );
+  } catch (error) {
+    Alert.alert("Error", "Invalid credentials");
+  }
+};
+
 
   return (
     <View style={styles.container}>
