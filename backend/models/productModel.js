@@ -10,8 +10,14 @@ const Product = {
   },
 
   getAll: (callback) => {
-    db.query('SELECT * FROM products', callback);
-  },
+  db.query(
+    `SELECT p.id, p.name, p.batch_code, p.description, u.full_name AS created_by_name
+     FROM products p
+     JOIN users u ON p.created_by = u.id`,
+    callback
+  );
+},
+
 
   getById: (id, callback) => {
     db.query('SELECT * FROM products WHERE id = ?', [id], callback);

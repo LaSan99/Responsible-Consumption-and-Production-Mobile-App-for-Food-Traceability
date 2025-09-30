@@ -9,6 +9,7 @@ import HomeScreen from './screens/HomeScreen';
 import Contact from './screens/Contact';
 import Profile from './screens/Profile';
 import FindFarmerScreen from './screens/FindFarmerScreen'
+import ProductListingScreen from './screens/ProductListingScreen';
 
 const Stack = createStackNavigator();
 
@@ -40,6 +41,7 @@ export default function App() {
         <Stack.Screen name="Contact" component={Contact} />
         <Stack.Screen name="Profile" component={Profile} />
         <Stack.Screen name="FindFarmerScreen" component={FindFarmerScreen} />
+        <Stack.Screen name="Products" component={ProductListingScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
