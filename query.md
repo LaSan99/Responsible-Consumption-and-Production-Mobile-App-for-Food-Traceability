@@ -1,3 +1,5 @@
+
+
 use food_traceability;
 
 DROP TABLE IF EXISTS users;
