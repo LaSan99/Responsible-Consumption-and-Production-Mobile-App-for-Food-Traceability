@@ -1,3 +1,5 @@
+
+
 use food_traceability;
 
 DROP TABLE IF EXISTS users;
@@ -36,4 +38,20 @@ CREATE TABLE supply_chain (
   updated_by INT,
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
   FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE certifications (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  authority VARCHAR(255),
+  issued_date DATE,
+  expiry_date DATE
+);
+
+CREATE TABLE product_certifications (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  product_id INT NOT NULL,
+  certification_id INT NOT NULL,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+  FOREIGN KEY (certification_id) REFERENCES certifications(id) ON DELETE CASCADE
 );
