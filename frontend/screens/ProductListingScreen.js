@@ -19,7 +19,6 @@ const { width } = Dimensions.get("window");
 export default function ProductListingScreen({ navigation }) {
   const [products, setProducts] = useState([]);
 
-  // Fetch products from backend
   useEffect(() => {
     const fetchProducts = async () => {
       try {
@@ -57,12 +56,19 @@ export default function ProductListingScreen({ navigation }) {
           <View key={index} style={styles.productCard}>
             <Text style={styles.productName}>{product.name}</Text>
             <Text style={styles.productBatch}>Batch: {product.batch_code}</Text>
-            <Text style={styles.productDescription}>
-              {product.description}
-            </Text>
+            <Text style={styles.productDescription}>{product.description}</Text>
             <Text style={styles.productCreator}>
               Created by: {product.created_by_name}
             </Text>
+
+            <TouchableOpacity
+              style={styles.viewButton}
+              onPress={() =>
+                navigation.navigate("ProductDetail", { productId: product.id })
+              }
+            >
+              <Text style={styles.viewButtonText}>View</Text>
+            </TouchableOpacity>
           </View>
         ))}
       </ScrollView>
@@ -141,5 +147,17 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: "#F3F4F6",
+  },
+  viewButton: {
+    marginTop: 12,
+    backgroundColor: "#10B981",
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  viewButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
