@@ -11,6 +11,8 @@ import Profile from './screens/Profile';
 import FindFarmerScreen from './screens/FindFarmerScreen'
 import ProductListingScreen from './screens/ProductListingScreen';
 import Scanner from './screens/Scanner';
+import ProductDetailScreen from './screens/ProductDetailScreen';
+import ProductCertificationsScreen from './screens/ProductCertificationsScreen';
 
 const Stack = createStackNavigator();
 
@@ -44,6 +46,8 @@ export default function App() {
         <Stack.Screen name="FindFarmerScreen" component={FindFarmerScreen} />
         <Stack.Screen name="Products" component={ProductListingScreen} />
         <Stack.Screen name="Scanner" component={Scanner} />
+        <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
+        <Stack.Screen name="ProductCertifications" component={ProductCertificationsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
