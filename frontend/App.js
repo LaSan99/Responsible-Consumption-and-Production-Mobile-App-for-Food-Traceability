@@ -30,6 +30,7 @@ import AddStageScreen from './screens/AddStageScreen';
 import ProductCertificationManagementScreen from './screens/ProductCertificationManagementScreen';
 import AddCertificationScreen from './screens/AddCertificationScreen';
 
+
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -72,36 +73,36 @@ function ConsumerTabs() {
         headerShown: false,
       })}
     >
-      <Tab.Screen 
-        name="Home" 
+      <Tab.Screen
+        name="Home"
         component={HomeScreen}
         options={{
           tabBarLabel: 'Home',
         }}
       />
-      <Tab.Screen 
-        name="Products" 
+      <Tab.Screen
+        name="Products"
         component={ProductListingScreen}
         options={{
           tabBarLabel: 'Products',
         }}
       />
-      <Tab.Screen 
-        name="Scanner" 
+      <Tab.Screen
+        name="Scanner"
         component={Scanner}
         options={{
           tabBarLabel: 'Scan',
         }}
       />
-      <Tab.Screen 
-        name="Contact" 
+      <Tab.Screen
+        name="Contact"
         component={Contact}
         options={{
           tabBarLabel: 'Contact',
         }}
       />
-      <Tab.Screen 
-        name="Profile" 
+      <Tab.Screen
+        name="Profile"
         component={Profile}
         options={{
           tabBarLabel: 'Profile',
@@ -150,36 +151,36 @@ function ProducerTabs() {
         headerShown: false,
       })}
     >
-      <Tab.Screen 
-        name="Dashboard" 
+      <Tab.Screen
+        name="Dashboard"
         component={ProducerProfile}
         options={{
           tabBarLabel: 'Dashboard',
         }}
       />
-      <Tab.Screen 
-        name="Products" 
+      <Tab.Screen
+        name="Products"
         component={ProductListingScreen}
         options={{
           tabBarLabel: 'Products',
         }}
       />
-      <Tab.Screen 
-        name="Scanner" 
+      <Tab.Screen
+        name="Scanner"
         component={Scanner}
         options={{
           tabBarLabel: 'Scan',
         }}
       />
-      <Tab.Screen 
-        name="Contact" 
+      <Tab.Screen
+        name="Contact"
         component={Contact}
         options={{
           tabBarLabel: 'Contact',
         }}
       />
-      <Tab.Screen 
-        name="Profile" 
+      <Tab.Screen
+        name="Profile"
         component={Profile}
         options={{
           tabBarLabel: 'Profile',
@@ -253,51 +254,51 @@ export default function App() {
         {isAuthenticated ? (
           <>
             {/* Main App Tabs */}
-            <Stack.Screen 
-              name="MainTabs" 
-              component={userRole === 'producer' ? ProducerTabs : ConsumerTabs} 
+            <Stack.Screen
+              name="MainTabs"
+              component={userRole === 'producer' ? ProducerTabs : ConsumerTabs}
             />
-            
+
             {/* Modal/Detail Screens */}
-            <Stack.Screen 
-              name="ProductDetail" 
+            <Stack.Screen
+              name="ProductDetail"
               component={ProductDetailScreen}
               options={{ presentation: 'modal' }}
             />
-            <Stack.Screen 
-              name="ProductCertifications" 
+            <Stack.Screen
+              name="ProductCertifications"
               component={ProductCertificationsScreen}
               options={{ presentation: 'modal' }}
             />
-            <Stack.Screen 
-              name="FindFarmerScreen" 
+            <Stack.Screen
+              name="FindFarmerScreen"
               component={FindFarmerScreen}
               options={{ presentation: 'modal' }}
             />
             
             {/* Producer-specific screens */}
-            <Stack.Screen 
-              name="AddProduct" 
+            <Stack.Screen
+              name="AddProduct"
               component={AddProductScreen}
               options={{ presentation: 'modal' }}
             />
-            <Stack.Screen 
-              name="BlockchainStages" 
+            <Stack.Screen
+              name="BlockchainStages"
               component={BlockchainStagesScreen}
               options={{ presentation: 'modal' }}
             />
-            <Stack.Screen 
-              name="AddStage" 
+            <Stack.Screen
+              name="AddStage"
               component={AddStageScreen}
               options={{ presentation: 'modal' }}
             />
-            <Stack.Screen 
-              name="ProductCertificationManagement" 
+            <Stack.Screen
+              name="ProductCertificationManagement"
               component={ProductCertificationManagementScreen}
               options={{ presentation: 'modal' }}
             />
-            <Stack.Screen 
-              name="AddCertification" 
+            <Stack.Screen
+              name="AddCertification"
               component={AddCertificationScreen}
               options={{ presentation: 'modal' }}
             />
