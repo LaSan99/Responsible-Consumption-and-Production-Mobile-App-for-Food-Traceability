@@ -15,6 +15,8 @@ import ProductDetailScreen from './screens/ProductDetailScreen';
 import ProductCertificationsScreen from './screens/ProductCertificationsScreen';
 import ProducerProfile from './screens/ProducerProfile';
 import AddProductScreen from './screens/AddProductScreen';
+import BlockchainStagesScreen from './screens/BlockchainStagesScreen';
+import AddStageScreen from './screens/AddStageScreen';
 
 const Stack = createStackNavigator();
 
@@ -67,6 +69,8 @@ export default function App() {
         <Stack.Screen name="ProductCertifications" component={ProductCertificationsScreen} />
         <Stack.Screen name="ProducerProfile" component={ProducerProfile} />
         <Stack.Screen name="AddProduct" component={AddProductScreen} />
+        <Stack.Screen name="BlockchainStages" component={BlockchainStagesScreen} />
+        <Stack.Screen name="AddStage" component={AddStageScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

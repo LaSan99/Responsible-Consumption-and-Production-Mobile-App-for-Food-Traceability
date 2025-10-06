@@ -82,7 +82,38 @@ export default function ProducerProfile({ navigation }) {
   };
 
   const navigateToSupplyChain = () => {
-    navigation.navigate('SupplyChain');
+    if (products.length === 0) {
+      Alert.alert(
+        'No Products',
+        'You need to add products first before managing blockchain stages.',
+        [{ text: 'Add Product', onPress: navigateToAddProduct }]
+      );
+      return;
+    }
+    
+    if (products.length === 1) {
+      // Navigate directly if only one product
+      navigation.navigate('BlockchainStages', {
+        productId: products[0].id,
+        productName: products[0].name
+      });
+    } else {
+      // Show product selection if multiple products
+      Alert.alert(
+        'Select Product',
+        'Choose a product to manage its blockchain stages:',
+        [
+          ...products.slice(0, 3).map(product => ({
+            text: product.name,
+            onPress: () => navigation.navigate('BlockchainStages', {
+              productId: product.id,
+              productName: product.name
+            })
+          })),
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
+    }
   };
 
   if (isLoading) {
@@ -173,8 +204,8 @@ export default function ProducerProfile({ navigation }) {
               style={styles.actionGradient}
             >
               <Ionicons name="git-network-outline" size={32} color="#fff" />
-              <Text style={styles.actionTitle}>Supply Chain</Text>
-              <Text style={styles.actionSubtitle}>Track your products</Text>
+              <Text style={styles.actionTitle}>Blockchain Stages</Text>
+              <Text style={styles.actionSubtitle}>Manage supply chain</Text>
             </LinearGradient>
           </TouchableOpacity>
 
