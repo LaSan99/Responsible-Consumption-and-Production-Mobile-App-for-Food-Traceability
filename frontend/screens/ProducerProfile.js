@@ -74,7 +74,7 @@ export default function ProducerProfile({ navigation }) {
   };
 
   const navigateToAddProduct = () => {
-    navigation.navigate('ProductListing');
+    navigation.navigate('AddProduct');
   };
 
   const navigateToManageProducts = () => {
@@ -201,7 +201,12 @@ export default function ProducerProfile({ navigation }) {
               <View key={index} style={styles.productItem}>
                 <View style={styles.productInfo}>
                   <Text style={styles.productName}>{product.name}</Text>
-                  <Text style={styles.productCategory}>{product.category}</Text>
+                  <Text style={styles.productCategory}>
+                    {product.category || 'No category'} • Batch: {product.batch_code}
+                  </Text>
+                  {product.origin && (
+                    <Text style={styles.productOrigin}>📍 {product.origin}</Text>
+                  )}
                 </View>
                 <View style={styles.productStatus}>
                   <Text style={styles.statusText}>Active</Text>
@@ -388,6 +393,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 2,
+  },
+  productOrigin: {
+    fontSize: 12,
+    color: '#4CAF50',
+    marginTop: 4,
   },
   productStatus: {
     backgroundColor: '#E8F5E8',

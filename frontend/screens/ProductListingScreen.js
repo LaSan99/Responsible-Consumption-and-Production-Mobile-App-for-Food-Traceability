@@ -56,7 +56,19 @@ export default function ProductListingScreen({ navigation }) {
           <View key={index} style={styles.productCard}>
             <Text style={styles.productName}>{product.name}</Text>
             <Text style={styles.productBatch}>Batch: {product.batch_code}</Text>
+            {product.category && (
+              <Text style={styles.productCategory}>Category: {product.category}</Text>
+            )}
+            {product.origin && (
+              <Text style={styles.productOrigin}>Origin: {product.origin}</Text>
+            )}
             <Text style={styles.productDescription}>{product.description}</Text>
+            {product.harvest_date && (
+              <Text style={styles.productDate}>Harvested: {product.harvest_date}</Text>
+            )}
+            {product.expiry_date && (
+              <Text style={styles.productDate}>Expires: {product.expiry_date}</Text>
+            )}
             <Text style={styles.productCreator}>
               Created by: {product.created_by_name}
             </Text>
@@ -132,6 +144,23 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     marginTop: 6,
     fontWeight: "500",
+  },
+  productCategory: {
+    fontSize: 14,
+    color: "#8B5CF6",
+    marginTop: 4,
+    fontWeight: "500",
+  },
+  productOrigin: {
+    fontSize: 14,
+    color: "#F59E0B",
+    marginTop: 4,
+    fontWeight: "500",
+  },
+  productDate: {
+    fontSize: 13,
+    color: "#6B7280",
+    marginTop: 4,
   },
   productDescription: {
     fontSize: 15,

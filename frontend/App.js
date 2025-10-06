@@ -14,6 +14,7 @@ import Scanner from './screens/Scanner';
 import ProductDetailScreen from './screens/ProductDetailScreen';
 import ProductCertificationsScreen from './screens/ProductCertificationsScreen';
 import ProducerProfile from './screens/ProducerProfile';
+import AddProductScreen from './screens/AddProductScreen';
 
 const Stack = createStackNavigator();
 
@@ -65,6 +66,7 @@ export default function App() {
         <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
         <Stack.Screen name="ProductCertifications" component={ProductCertificationsScreen} />
         <Stack.Screen name="ProducerProfile" component={ProducerProfile} />
+        <Stack.Screen name="AddProduct" component={AddProductScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

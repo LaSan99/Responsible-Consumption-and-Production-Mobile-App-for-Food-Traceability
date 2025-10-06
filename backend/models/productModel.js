@@ -1,22 +1,60 @@
 const db = require('../db');
 
 const Product = {
-  create: (name, batch_code, description, created_by, callback) => {
+  create: (name, batch_code, description, created_by, category, origin, harvest_date, expiry_date, callback) => {
+    // First try with new columns
     db.query(
-      'INSERT INTO products (name, batch_code, description, created_by) VALUES (?, ?, ?, ?)',
-      [name, batch_code, description, created_by],
-      callback
+      'INSERT INTO products (name, batch_code, description, created_by, category, origin, harvest_date, expiry_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [name, batch_code, description, created_by, category || null, origin || null, harvest_date || null, expiry_date || null],
+      (err, results) => {
+        if (err) {
+          // If error due to missing columns, try with basic columns only
+          if (err.code === 'ER_BAD_FIELD_ERROR') {
+            db.query(
+              'INSERT INTO products (name, batch_code, description, created_by) VALUES (?, ?, ?, ?)',
+              [name, batch_code, description, created_by],
+              callback
+            );
+          } else {
+            callback(err, results);
+          }
+        } else {
+          callback(err, results);
+        }
+      }
     );
   },
 
   getAll: (callback) => {
-  db.query(
-    `SELECT p.id, p.name, p.batch_code, p.description, u.full_name AS created_by_name
-     FROM products p
-     JOIN users u ON p.created_by = u.id`,
-    callback
-  );
-},
+    // First try with new columns, fallback to old structure if columns don't exist
+    db.query(
+      `SELECT p.id, p.name, p.batch_code, p.description, 
+              COALESCE(p.category, '') as category, 
+              COALESCE(p.origin, '') as origin, 
+              COALESCE(p.harvest_date, '') as harvest_date, 
+              COALESCE(p.expiry_date, '') as expiry_date, 
+              u.full_name AS created_by_name
+       FROM products p
+       JOIN users u ON p.created_by = u.id`,
+      (err, results) => {
+        if (err) {
+          // If error due to missing columns, try with basic columns only
+          if (err.code === 'ER_BAD_FIELD_ERROR') {
+            db.query(
+              `SELECT p.id, p.name, p.batch_code, p.description, u.full_name AS created_by_name
+               FROM products p
+               JOIN users u ON p.created_by = u.id`,
+              callback
+            );
+          } else {
+            callback(err, results);
+          }
+        } else {
+          callback(err, results);
+        }
+      }
+    );
+  },
 
 
   getById: (id, callback) => {
@@ -24,13 +62,37 @@ const Product = {
   },
 
   getByProducer: (producerId, callback) => {
+    // First try with new columns, fallback to old structure if columns don't exist
     db.query(
-      `SELECT p.id, p.name, p.batch_code, p.description, p.created_by, u.full_name AS created_by_name
+      `SELECT p.id, p.name, p.batch_code, p.description, 
+              COALESCE(p.category, '') as category, 
+              COALESCE(p.origin, '') as origin, 
+              COALESCE(p.harvest_date, '') as harvest_date, 
+              COALESCE(p.expiry_date, '') as expiry_date, 
+              p.created_by, u.full_name AS created_by_name
        FROM products p
        JOIN users u ON p.created_by = u.id
        WHERE p.created_by = ?`,
       [producerId],
-      callback
+      (err, results) => {
+        if (err) {
+          // If error due to missing columns, try with basic columns only
+          if (err.code === 'ER_BAD_FIELD_ERROR') {
+            db.query(
+              `SELECT p.id, p.name, p.batch_code, p.description, p.created_by, u.full_name AS created_by_name
+               FROM products p
+               JOIN users u ON p.created_by = u.id
+               WHERE p.created_by = ?`,
+              [producerId],
+              callback
+            );
+          } else {
+            callback(err, results);
+          }
+        } else {
+          callback(err, results);
+        }
+      }
     );
   },
 
