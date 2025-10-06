@@ -29,7 +29,7 @@ import BlockchainStagesScreen from './screens/BlockchainStagesScreen';
 import AddStageScreen from './screens/AddStageScreen';
 import ProductCertificationManagementScreen from './screens/ProductCertificationManagementScreen';
 import AddCertificationScreen from './screens/AddCertificationScreen';
-
+import SupplyChainMapScreen from './screens/SupplyChainMap';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -275,7 +275,12 @@ export default function App() {
               component={FindFarmerScreen}
               options={{ presentation: 'modal' }}
             />
-            
+            <Stack.Screen
+              name="SupplyChainMap"
+              component={SupplyChainMapScreen}
+              options={{ presentation: 'modal' }}
+            />
+
             {/* Producer-specific screens */}
             <Stack.Screen
               name="AddProduct"

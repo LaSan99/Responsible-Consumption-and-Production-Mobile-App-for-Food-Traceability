@@ -76,13 +76,13 @@ export default function HomeScreen({ navigation }) {
       color: '#22C55E',
       screen: 'FindFarmerScreen', 
     },
-  //   {
-  //   title: 'Supply Chain Map',
-  //   icon: '🗺️',
-  //   description: 'View product stages on map',
-  //   color: '#F97316',
-  //   screen: 'SupplyChainMap',
-  // },
+    {
+    title: 'Supply Chain Map',
+    icon: '🗺️',
+    description: 'View product stages on map',
+    color: '#F97316',
+    screen: 'SupplyChainMap',
+  },
 
   ];
 
