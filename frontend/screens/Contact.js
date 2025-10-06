@@ -13,7 +13,10 @@ import {
   Dimensions,
   Linking,
   KeyboardAvoidingView,
+  ActivityIndicator,
 } from 'react-native';
+import axios from 'axios';
+import apiConfig from '../config/api';
 
 const { width } = Dimensions.get('window');
 
@@ -26,6 +29,7 @@ export default function ContactScreen({ navigation }) {
   });
 
   const [selectedCategory, setSelectedCategory] = useState('general');
+  const [isLoading, setIsLoading] = useState(false);
 
   const categories = [
     { id: 'general', title: 'General Inquiry', icon: '💬' },
@@ -87,7 +91,7 @@ export default function ContactScreen({ navigation }) {
     }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.name || !formData.email || !formData.message) {
       Alert.alert('Error', 'Please fill in all required fields.');
       return;
@@ -100,24 +104,45 @@ export default function ContactScreen({ navigation }) {
       return;
     }
 
-    Alert.alert(
-      'Message Sent',
-      'Thank you for contacting us! We will respond within 24 hours.',
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            setFormData({
-              name: '',
-              email: '',
-              subject: '',
-              message: '',
-            });
-            setSelectedCategory('general');
-          },
-        },
-      ]
-    );
+    setIsLoading(true);
+    try {
+      const response = await axios.post(`${apiConfig.baseURL}/contact/submit`, {
+        name: formData.name,
+        email: formData.email,
+        subject: formData.subject,
+        message: formData.message,
+        category: selectedCategory,
+      });
+
+      if (response.data.success) {
+        Alert.alert(
+          'Message Sent Successfully! 📧',
+          response.data.message,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setFormData({
+                  name: '',
+                  email: '',
+                  subject: '',
+                  message: '',
+                });
+                setSelectedCategory('general');
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Error', response.data.error || 'Failed to send message');
+      }
+    } catch (error) {
+      console.error('Contact form submission error:', error);
+      const errorMessage = error.response?.data?.error || 'Failed to send message. Please try again.';
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const goBack = () => {
@@ -264,12 +289,22 @@ export default function ContactScreen({ navigation }) {
               </View>
 
               <TouchableOpacity
-                style={styles.submitButton}
+                style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
                 onPress={handleSubmit}
+                disabled={isLoading}
                 activeOpacity={0.8}
               >
-                <Text style={styles.submitButtonText}>Send Message</Text>
-                <Text style={styles.submitIcon}>📤</Text>
+                {isLoading ? (
+                  <>
+                    <ActivityIndicator color="#ffffff" size="small" />
+                    <Text style={[styles.submitButtonText, { marginLeft: 8 }]}>Sending...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.submitButtonText}>Send Message</Text>
+                    <Text style={styles.submitIcon}>📤</Text>
+                  </>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -552,6 +587,10 @@ const styles = StyleSheet.create({
         elevation: 3,
       },
     }),
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#9ca3af',
+    opacity: 0.7,
   },
   submitButtonText: {
     color: '#ffffff',

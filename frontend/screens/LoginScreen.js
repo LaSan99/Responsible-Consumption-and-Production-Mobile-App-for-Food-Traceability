@@ -53,12 +53,8 @@ export default function LoginScreen({ navigation }) {
         })
       );
 
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: "Home" }],
-        })
-      );
+      // Just store the data - App.js will automatically detect the change and navigate
+      // No need to manually navigate since App.js listens for auth changes
     } catch (error) {
       Alert.alert("Error", "Invalid credentials. Please try again.");
     } finally {
