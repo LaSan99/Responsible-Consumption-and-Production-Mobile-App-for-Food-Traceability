@@ -194,11 +194,8 @@ export default function ProfileScreen({ navigation }) {
           text: 'Logout',
           style: 'destructive',
           onPress: async () => {
-            await AsyncStorage.removeItem('token');
-            await AsyncStorage.removeItem('user');
-            if (navigation.reset) {
-              navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-            }
+            await AsyncStorage.multiRemove(['token', 'user']);
+            // App.js will automatically detect the change and navigate to login
           },
         },
       ]

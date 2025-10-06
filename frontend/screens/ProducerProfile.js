@@ -63,10 +63,7 @@ export default function ProducerProfile({ navigation }) {
           style: 'destructive',
           onPress: async () => {
             await AsyncStorage.multiRemove(['token', 'user']);
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Login' }],
-            });
+            // App.js will automatically detect the change and navigate to login
           },
         },
       ]
@@ -211,7 +208,40 @@ export default function ProducerProfile({ navigation }) {
 
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => navigation.navigate('ProductCertifications')}
+            onPress={() => {
+              if (products.length === 0) {
+                Alert.alert(
+                  'No Products',
+                  'You need to add products first before managing certifications.',
+                  [{ text: 'Add Product', onPress: navigateToAddProduct }]
+                );
+                return;
+              }
+              
+              if (products.length === 1) {
+                // Navigate directly if only one product
+                navigation.navigate('ProductCertificationManagement', {
+                  productId: products[0].id,
+                  productName: products[0].name
+                });
+              } else {
+                // Show product selection if multiple products
+                Alert.alert(
+                  'Select Product',
+                  'Choose a product to manage its certifications:',
+                  [
+                    ...products.slice(0, 3).map(product => ({
+                      text: product.name,
+                      onPress: () => navigation.navigate('ProductCertificationManagement', {
+                        productId: product.id,
+                        productName: product.name
+                      })
+                    })),
+                    { text: 'Cancel', style: 'cancel' }
+                  ]
+                );
+              }
+            }}
           >
             <LinearGradient
               colors={['#9C27B0', '#7B1FA2']}
