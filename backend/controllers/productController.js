@@ -25,6 +25,13 @@ exports.getProductById = (req, res) => {
   });
 };
 
+exports.getProductsByProducer = (req, res) => {
+  Product.getByProducer(req.user.id, (err, results) => {
+    if (err) return res.status(500).json({ message: 'Error fetching producer products' });
+    res.json(results);
+  });
+};
+
 exports.updateProduct = (req, res) => {
   const { name, batch_code, description } = req.body;
   Product.update(req.params.id, name, batch_code, description, (err) => {

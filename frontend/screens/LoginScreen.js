@@ -56,7 +56,7 @@ export default function LoginScreen({ navigation }) {
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
-          routes: [{ name: "Home" }],
+          routes: [{ name: response.data.role === 'producer' ? 'ProducerProfile' : 'Home' }],
         })
       );
     } catch (error) {

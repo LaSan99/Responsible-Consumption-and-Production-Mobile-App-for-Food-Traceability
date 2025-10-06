@@ -13,6 +13,7 @@ import ProductListingScreen from './screens/ProductListingScreen';
 import Scanner from './screens/Scanner';
 import ProductDetailScreen from './screens/ProductDetailScreen';
 import ProductCertificationsScreen from './screens/ProductCertificationsScreen';
+import ProducerProfile from './screens/ProducerProfile';
 
 const Stack = createStackNavigator();
 
@@ -22,7 +23,22 @@ export default function App() {
   useEffect(() => {
     const checkLogin = async () => {
       const token = await AsyncStorage.getItem('token');
-      setInitialRoute(token ? 'Home' : 'Login');
+      if (token) {
+        // Check user role to determine initial route
+        const userData = await AsyncStorage.getItem('user');
+        if (userData) {
+          const user = JSON.parse(userData);
+          if (user.role === 'producer') {
+            setInitialRoute('ProducerProfile');
+          } else {
+            setInitialRoute('Home');
+          }
+        } else {
+          setInitialRoute('Home');
+        }
+      } else {
+        setInitialRoute('Login');
+      }
     };
     checkLogin();
   }, []);
@@ -48,6 +64,7 @@ export default function App() {
         <Stack.Screen name="Scanner" component={Scanner} />
         <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
         <Stack.Screen name="ProductCertifications" component={ProductCertificationsScreen} />
+        <Stack.Screen name="ProducerProfile" component={ProducerProfile} />
       </Stack.Navigator>
     </NavigationContainer>
   );

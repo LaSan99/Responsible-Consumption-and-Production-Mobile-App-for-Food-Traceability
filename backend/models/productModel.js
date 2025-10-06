@@ -23,6 +23,17 @@ const Product = {
     db.query('SELECT * FROM products WHERE id = ?', [id], callback);
   },
 
+  getByProducer: (producerId, callback) => {
+    db.query(
+      `SELECT p.id, p.name, p.batch_code, p.description, p.created_by, u.full_name AS created_by_name
+       FROM products p
+       JOIN users u ON p.created_by = u.id
+       WHERE p.created_by = ?`,
+      [producerId],
+      callback
+    );
+  },
+
   update: (id, name, batch_code, description, callback) => {
     db.query(
       'UPDATE products SET name = ?, batch_code = ?, description = ? WHERE id = ?',
