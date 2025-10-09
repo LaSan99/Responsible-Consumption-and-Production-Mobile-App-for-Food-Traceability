@@ -68,7 +68,22 @@ export default function HomeScreen({ navigation }) {
       description: 'View verified credentials',
       color: '#EAB308',
       screen: 'Certifications'
-    }
+    },
+    {
+      title: 'Find Farmer',
+      icon: '🚜',
+      description: 'Locate local farmers nearby',
+      color: '#22C55E',
+      screen: 'FindFarmerScreen', 
+    },
+    {
+    title: 'Supply Chain Map',
+    icon: '🗺️',
+    description: 'View product stages on map',
+    color: '#F97316',
+    screen: 'SupplyChainMap',
+  },
+
   ];
 
   useEffect(() => {
@@ -114,7 +129,7 @@ export default function HomeScreen({ navigation }) {
         barStyle={Platform.OS === 'ios' ? 'dark-content' : 'light-content'}
         backgroundColor="#f8fafc"
       />
-      
+
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
@@ -231,7 +246,7 @@ export default function HomeScreen({ navigation }) {
 
         {/* Search Bar */}
         <View style={styles.section}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.searchContainer}
             onPress={() => handleNavigation('Search')}
             activeOpacity={0.7}
