@@ -10,65 +10,122 @@ import {
   Alert,
   SafeAreaView,
   Dimensions,
+  Animated,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons, MaterialIcons, FontAwesome5, Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
+const CARD_WIDTH = (width - 60) / 2;
 
 export default function HomeScreen({ navigation }) {
   const [user, setUser] = useState(null);
   const [notifications, setNotifications] = useState(3);
+  const scrollY = new Animated.Value(0);
+  const [activeTab, setActiveTab] = useState('all');
 
-  // Mock recent products data
   const [recentProducts] = useState([
-    { id: 1, name: 'Organic Tomatoes', farm: 'Green Valley Farm', rating: 4.8 },
-    { id: 2, name: 'Free Range Eggs', farm: 'Happy Hen Farm', rating: 4.9 },
-    { id: 3, name: 'Wild Salmon', farm: 'Ocean Fresh Co.', rating: 4.7 }
+    { 
+      id: 1, 
+      name: 'Organic Tomatoes', 
+      farm: 'Green Valley Farm', 
+      rating: 4.8,
+      price: '$12.99/kg',
+      verified: true,
+      freshness: 95
+    },
+    { 
+      id: 2, 
+      name: 'Free Range Eggs', 
+      farm: 'Happy Hen Farm', 
+      rating: 4.9,
+      price: '$8.50/dozen',
+      verified: true,
+      freshness: 98
+    },
+    { 
+      id: 3, 
+      name: 'Wild Salmon', 
+      farm: 'Ocean Fresh Co.', 
+      rating: 4.7,
+      price: '$24.99/kg',
+      verified: true,
+      freshness: 92
+    }
   ]);
 
   const navigationItems = [
     {
       title: 'Products',
-      icon: '🛒',
-      description: 'Browse traceable products',
-      color: '#10B981',
+      icon: 'storefront-outline',
+      iconFamily: 'Ionicons',
+      description: 'Browse items',
+      gradient: ['#667eea', '#764ba2'],
       screen: 'Products'
     },
     {
       title: 'Scan QR',
-      icon: '📱',
-      description: 'Trace product origin',
-      color: '#3B82F6',
+      icon: 'qr-code-scanner',
+      iconFamily: 'MaterialIcons',
+      description: 'Trace origin',
+      gradient: ['#f093fb', '#f5576c'],
       screen: 'Scanner'
     },
     {
-      title: 'My Profile',
-      icon: '👤',
-      description: 'Manage your account',
-      color: '#8B5CF6',
+      title: 'Profile',
+      icon: 'account-circle-outline',
+      iconFamily: 'MaterialIcons',
+      description: 'Your account',
+      gradient: ['#4facfe', '#00f2fe'],
       screen: 'Profile'
     },
     {
-      title: 'Contact Us',
-      icon: '📞',
-      description: 'Get support & feedback',
-      color: '#F59E0B',
+      title: 'Contact',
+      icon: 'headset',
+      iconFamily: 'MaterialIcons',
+      description: 'Get support',
+      gradient: ['#43e97b', '#38f9d7'],
       screen: 'Contact'
     },
     {
       title: 'Analytics',
-      icon: '📊',
-      description: 'Your consumption insights',
-      color: '#6366F1',
+      icon: 'stats-chart',
+      iconFamily: 'Ionicons',
+      description: 'Insights',
+      gradient: ['#fa709a', '#fee140'],
       screen: 'Analytics'
     },
     {
-      title: 'Certifications',
-      icon: '🏆',
-      description: 'View verified credentials',
-      color: '#EAB308',
+      title: 'Certificates',
+      icon: 'certificate',
+      iconFamily: 'FontAwesome5',
+      description: 'Credentials',
+      gradient: ['#30cfd0', '#330867'],
       screen: 'Certifications'
-    }
+    },
+    {
+      title: 'Find Farmer',
+      icon: 'map-marker-radius',
+      iconFamily: 'MaterialIcons',
+      description: 'Nearby farms',
+      gradient: ['#a8edea', '#fed6e3'],
+      screen: 'FindFarmerScreen', 
+    },
+    {
+      title: 'Supply Map',
+      icon: 'map-outline',
+      iconFamily: 'Ionicons',
+      description: 'Track stages',
+      gradient: ['#ff9a9e', '#fecfef'],
+      screen: 'SupplyChainMap',
+    },
+  ];
+
+  const quickStats = [
+    { label: 'Scanned', value: '24', icon: 'scan', change: '+12%', color: '#667eea' },
+    { label: 'CO₂ Saved', value: '8.4kg', icon: 'leaf', change: '+8%', color: '#43e97b' },
+    { label: 'Rating', value: '4.9', icon: 'star', change: '+0.2', color: '#fa709a' },
   ];
 
   useEffect(() => {
@@ -84,16 +141,12 @@ export default function HomeScreen({ navigation }) {
       'Logout',
       'Are you sure you want to logout?',
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Logout',
           style: 'destructive',
           onPress: async () => {
             await AsyncStorage.multiRemove(['token', 'user']);
-            // App.js will automatically detect the change and navigate to login
           },
         },
       ]
@@ -104,308 +157,642 @@ export default function HomeScreen({ navigation }) {
     if (navigation.navigate) {
       navigation.navigate(screen);
     } else {
-      Alert.alert('Navigation', `Navigating to ${screen} screen`);
+      Alert.alert('Navigation', `Opening ${screen}`);
     }
   };
 
+  const renderIcon = (iconName, iconFamily, size = 24, color = '#FFF') => {
+    switch (iconFamily) {
+      case 'Ionicons':
+        return <Ionicons name={iconName} size={size} color={color} />;
+      case 'MaterialIcons':
+        return <MaterialIcons name={iconName} size={size} color={color} />;
+      case 'FontAwesome5':
+        return <FontAwesome5 name={iconName} size={size} color={color} />;
+      case 'Feather':
+        return <Feather name={iconName} size={size} color={color} />;
+      default:
+        return <Ionicons name={iconName} size={size} color={color} />;
+    }
+  };
+
+  const headerScale = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [1, 0.9],
+    extrapolate: 'clamp',
+  });
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar
-        barStyle={Platform.OS === 'ios' ? 'dark-content' : 'light-content'}
-        backgroundColor="#f8fafc"
-      />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#667eea" translucent />
       
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
+      {/* Floating Header */}
+      <SafeAreaView style={styles.headerContainer}>
+        <Animated.View style={[styles.header, { transform: [{ scale: headerScale }] }]}>
           <View style={styles.headerLeft}>
-            <View style={styles.logoContainer}>
-              <Text style={styles.logoIcon}>🌿</Text>
-            </View>
+            <LinearGradient colors={['#667eea', '#764ba2']} style={styles.logoContainer}>
+              <Ionicons name="leaf" size={24} color="#FFF" />
+            </LinearGradient>
             <View>
-              <Text style={styles.appName}>FoodTrace</Text>
-              <Text style={styles.appTagline}>Responsible Consumption</Text>
+              <Text style={styles.appTitle}>FoodTrace</Text>
+              <Text style={styles.appSubtitle}>Smart Tracking</Text>
             </View>
           </View>
           <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.notificationContainer}>
-              <Text style={styles.notificationIcon}>🔔</Text>
-              {notifications > 0 && (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationText}>{notifications}</Text>
-                </View>
-              )}
+            <TouchableOpacity style={styles.iconButton} activeOpacity={0.7}>
+              <Ionicons name="search-outline" size={22} color="#1F2937" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-              <Text style={styles.logoutText}>Logout</Text>
+            <TouchableOpacity style={styles.iconButton} activeOpacity={0.7}>
+              <Ionicons name="notifications-outline" size={22} color="#1F2937" />
+              {notifications > 0 && <View style={styles.notificationDot} />}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleLogout} style={styles.iconButton} activeOpacity={0.7}>
+              <Ionicons name="log-out-outline" size={22} color="#EF4444" />
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
+      </SafeAreaView>
 
-        {/* Welcome Section */}
-        {user && (
-          <View style={styles.welcomeSection}>
-            <View style={styles.welcomeContent}>
-              <View style={styles.welcomeLeft}>
-                <Text style={styles.welcomeTitle}>Welcome back, {user.full_name}!</Text>
-                <Text style={styles.userRole}>Role: {user.role}</Text>
-                <Text style={styles.userEmail}>{user.email}</Text>
-              </View>
-              <View style={styles.welcomeRight}>
-                <View style={styles.dateContainer}>
-                  <Text style={styles.dateIcon}>📅</Text>
-                  <Text style={styles.dateText}>Today</Text>
-                </View>
-              </View>
-            </View>
-          </View>
+      <Animated.ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
         )}
-
-        {/* Quick Actions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.actionsGrid}>
-            {navigationItems.map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.actionCard}
-                onPress={() => handleNavigation(item.screen)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.actionIcon, { backgroundColor: item.color }]}>
-                  <Text style={styles.actionIconText}>{item.icon}</Text>
-                </View>
-                <Text style={styles.actionTitle}>{item.title}</Text>
-                <Text style={styles.actionDescription}>{item.description}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Recent Products */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recently Traced</Text>
-            <TouchableOpacity onPress={() => handleNavigation('Products')}>
-              <Text style={styles.viewAllText}>View All</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.productsContainer}>
-            {recentProducts.map((product) => (
-              <TouchableOpacity key={product.id} style={styles.productCard} activeOpacity={0.7}>
-                <View style={styles.productLeft}>
-                  <View style={styles.productIcon}>
-                    <Text style={styles.productIconText}>🌿</Text>
+        scrollEventThrottle={16}
+      >
+        {/* Hero Card */}
+        {user && (
+          <View style={styles.heroContainer}>
+            <LinearGradient
+              colors={['#667eea', '#764ba2']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.heroCard}
+            >
+              <View style={styles.heroContent}>
+                <View style={styles.heroLeft}>
+                  <View style={styles.welcomeBadge}>
+                    <Ionicons name="hand-right" size={14} color="#667eea" />
+                    <Text style={styles.welcomeText}>Welcome Back</Text>
                   </View>
-                  <View style={styles.productInfo}>
-                    <Text style={styles.productName}>{product.name}</Text>
-                    <View style={styles.productLocation}>
-                      <Text style={styles.locationIcon}>📍</Text>
-                      <Text style={styles.farmName}>{product.farm}</Text>
+                  <Text style={styles.userName}>{user.full_name}</Text>
+                  <View style={styles.userMeta}>
+                    <View style={styles.roleBadge}>
+                      <Ionicons name="shield-checkmark" size={12} color="#FFF" />
+                      <Text style={styles.roleText}>{user.role}</Text>
                     </View>
                   </View>
                 </View>
-                <View style={styles.productRight}>
-                  <Text style={styles.starIcon}>⭐</Text>
-                  <Text style={styles.ratingText}>{product.rating}</Text>
+                <View style={styles.heroRight}>
+                  <View style={styles.avatarCircle}>
+                    <Text style={styles.avatarLetter}>
+                      {user.full_name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
                 </View>
+              </View>
+
+              {/* Quick Stats in Hero */}
+              <View style={styles.statsRow}>
+                {quickStats.map((stat, index) => (
+                  <View key={index} style={styles.statItem}>
+                    <View style={styles.statIconContainer}>
+                      <Ionicons name={stat.icon} size={16} color={stat.color} />
+                    </View>
+                    <Text style={styles.statValue}>{stat.value}</Text>
+                    <Text style={styles.statLabel}>{stat.label}</Text>
+                    <View style={styles.changeContainer}>
+                      <Ionicons name="trending-up" size={10} color="#10B981" />
+                      <Text style={styles.changeText}>{stat.change}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </LinearGradient>
+          </View>
+        )}
+
+        {/* Main Content */}
+        <View style={styles.mainContent}>
+          {/* Enhanced Search */}
+          <TouchableOpacity
+            style={styles.searchCard}
+            onPress={() => handleNavigation('Search')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.searchIconBox}>
+              <Ionicons name="search" size={20} color="#667eea" />
+            </View>
+            <Text style={styles.searchPlaceholder}>Search products, farms...</Text>
+            <View style={styles.micButton}>
+              <Ionicons name="mic-outline" size={18} color="#9CA3AF" />
+            </View>
+          </TouchableOpacity>
+
+          {/* Category Tabs */}
+          <View style={styles.tabsContainer}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {['All', 'Fresh', 'Organic', 'Local', 'Seafood'].map((tab) => (
+                <TouchableOpacity
+                  key={tab}
+                  style={[
+                    styles.tabChip,
+                    activeTab === tab.toLowerCase() && styles.tabChipActive
+                  ]}
+                  onPress={() => setActiveTab(tab.toLowerCase())}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.tabText,
+                    activeTab === tab.toLowerCase() && styles.tabTextActive
+                  ]}>
+                    {tab}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* Quick Actions Grid */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Quick Access</Text>
+              <TouchableOpacity>
+                <Ionicons name="grid-outline" size={20} color="#667eea" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.actionsGrid}>
+              {navigationItems.map((item, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.actionCard}
+                  onPress={() => handleNavigation(item.screen)}
+                  activeOpacity={0.75}
+                >
+                  <LinearGradient
+                    colors={item.gradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.actionGradient}
+                  >
+                    <View style={styles.actionTop}>
+                      <View style={styles.actionIconCircle}>
+                        {renderIcon(item.icon, item.iconFamily, 24, '#FFF')}
+                      </View>
+                      <View style={styles.arrowCircle}>
+                        <Ionicons name="arrow-forward" size={14} color="#FFF" />
+                      </View>
+                    </View>
+                    <View style={styles.actionBottom}>
+                      <Text style={styles.actionTitle}>{item.title}</Text>
+                      <Text style={styles.actionDesc}>{item.description}</Text>
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Recently Traced Products */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={styles.sectionTitle}>Recently Traced</Text>
+                <Text style={styles.sectionSubtitle}>Your latest scans</Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.viewAllButton}
+                onPress={() => handleNavigation('Products')}
+              >
+                <Text style={styles.viewAllText}>View All</Text>
+                <Ionicons name="chevron-forward" size={16} color="#667eea" />
+              </TouchableOpacity>
+            </View>
+
+            {recentProducts.map((product) => (
+              <TouchableOpacity 
+                key={product.id} 
+                style={styles.productCard}
+                activeOpacity={0.8}
+              >
+                <View style={styles.productImageBox}>
+                  <LinearGradient
+                    colors={['#667eea22', '#764ba222']}
+                    style={styles.productImageGradient}
+                  >
+                    <Ionicons name="leaf" size={28} color="#667eea" />
+                  </LinearGradient>
+                  {product.verified && (
+                    <View style={styles.verifiedBadge}>
+                      <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.productDetails}>
+                  <View style={styles.productHeader}>
+                    <Text style={styles.productName}>{product.name}</Text>
+                    <View style={styles.ratingBox}>
+                      <Ionicons name="star" size={14} color="#FBBF24" />
+                      <Text style={styles.ratingText}>{product.rating}</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.productMeta}>
+                    <Ionicons name="location" size={14} color="#9CA3AF" />
+                    <Text style={styles.farmName}>{product.farm}</Text>
+                  </View>
+
+                  <View style={styles.productFooter}>
+                    <Text style={styles.priceText}>{product.price}</Text>
+                    <View style={styles.freshnessBar}>
+                      <View style={styles.freshnessLabel}>
+                        <Ionicons name="fitness" size={12} color="#10B981" />
+                        <Text style={styles.freshnessText}>{product.freshness}% Fresh</Text>
+                      </View>
+                      <View style={styles.freshnessProgress}>
+                        <View style={[styles.freshnessIndicator, { width: `${product.freshness}%` }]} />
+                      </View>
+                    </View>
+                  </View>
+                </View>
+
+                <TouchableOpacity style={styles.moreButton}>
+                  <Ionicons name="ellipsis-vertical" size={18} color="#9CA3AF" />
+                </TouchableOpacity>
               </TouchableOpacity>
             ))}
           </View>
-        </View>
 
-        {/* Sustainability Tip */}
-        <View style={styles.section}>
-          <View style={styles.tipCard}>
-            <View style={styles.tipIcon}>
-              <Text style={styles.tipIconText}>🌿</Text>
-            </View>
-            <View style={styles.tipContent}>
-              <Text style={styles.tipTitle}>Sustainability Tip</Text>
-              <Text style={styles.tipText}>
-                Choose locally sourced products to reduce your carbon footprint! 🌱
-              </Text>
+          {/* Sustainability Card */}
+          <View style={styles.section}>
+            <TouchableOpacity style={styles.sustainabilityCard} activeOpacity={0.9}>
+              <LinearGradient
+                colors={['#10B981', '#059669']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.sustainabilityGradient}
+              >
+                <View style={styles.sustainabilityLeft}>
+                  <View style={styles.sustainabilityIcon}>
+                    <Ionicons name="earth" size={28} color="#FFF" />
+                  </View>
+                  <View style={styles.sustainabilityContent}>
+                    <View style={styles.tipBadge}>
+                      <Ionicons name="bulb" size={12} color="#10B981" />
+                      <Text style={styles.tipBadgeText}>Eco Tip</Text>
+                    </View>
+                    <Text style={styles.sustainabilityTitle}>Go Local, Go Green</Text>
+                    <Text style={styles.sustainabilityText}>
+                      Support local farmers and reduce your carbon footprint by 40%
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.5)" />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
+          {/* Impact Stats */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Your Impact</Text>
+            <View style={styles.impactGrid}>
+              <View style={styles.impactCard}>
+                <View style={styles.impactIconBox}>
+                  <Ionicons name="leaf-outline" size={24} color="#10B981" />
+                </View>
+                <Text style={styles.impactValue}>128kg</Text>
+                <Text style={styles.impactLabel}>CO₂ Reduced</Text>
+              </View>
+              <View style={styles.impactCard}>
+                <View style={styles.impactIconBox}>
+                  <Ionicons name="water-outline" size={24} color="#3B82F6" />
+                </View>
+                <Text style={styles.impactValue}>2,450L</Text>
+                <Text style={styles.impactLabel}>Water Saved</Text>
+              </View>
+              <View style={styles.impactCard}>
+                <View style={styles.impactIconBox}>
+                  <Ionicons name="people-outline" size={24} color="#F59E0B" />
+                </View>
+                <Text style={styles.impactValue}>12</Text>
+                <Text style={styles.impactLabel}>Farmers Helped</Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        {/* Search Bar */}
-        <View style={styles.section}>
-          <TouchableOpacity 
-            style={styles.searchContainer}
-            onPress={() => handleNavigation('Search')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.searchIcon}>🔍</Text>
-            <Text style={styles.searchPlaceholder}>Search for products, farms, or certifications...</Text>
-          </TouchableOpacity>
+          <View style={styles.bottomSpace} />
         </View>
-
-        {/* Bottom Spacing */}
-        <View style={styles.bottomSpacing} />
-      </ScrollView>
-    </SafeAreaView>
+      </Animated.ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F9FAFB',
+  },
+  headerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3.84,
-      },
-      android: {
-        elevation: 5,
-      },
-    }),
+    paddingTop: Platform.OS === 'ios' ? 0 : 40,
+    paddingBottom: 15,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   logoContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#10B981',
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#667eea',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
-  logoIcon: {
+  appTitle: {
     fontSize: 20,
+    fontWeight: '800',
+    color: '#111827',
+    letterSpacing: -0.5,
   },
-  appName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1f2937',
-  },
-  appTagline: {
+  appSubtitle: {
     fontSize: 12,
-    color: '#6b7280',
+    color: '#6B7280',
+    fontWeight: '600',
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
-  notificationContainer: {
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
     position: 'relative',
-    marginRight: 15,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
-  notificationIcon: {
-    fontSize: 20,
-  },
-  notificationBadge: {
+  notificationDot: {
     position: 'absolute',
-    top: -5,
-    right: -5,
-    backgroundColor: '#ef4444',
-    borderRadius: 10,
-    width: 20,
-    height: 20,
+    top: 8,
+    right: 8,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#EF4444',
+    borderWidth: 2,
+    borderColor: '#FFF',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  heroContainer: {
+    paddingTop: Platform.OS === 'ios' ? 100 : 120,
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  heroCard: {
+    borderRadius: 24,
+    padding: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#667eea',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  heroContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 24,
+  },
+  heroLeft: {
+    flex: 1,
+  },
+  welcomeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    marginBottom: 12,
+    gap: 6,
+  },
+  welcomeText: {
+    fontSize: 12,
+    color: '#667eea',
+    fontWeight: '700',
+  },
+  userName: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#FFF',
+    marginBottom: 8,
+    letterSpacing: -1,
+  },
+  userMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  roleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 6,
+  },
+  roleText: {
+    fontSize: 13,
+    color: '#FFF',
+    fontWeight: '700',
+  },
+  heroRight: {
+    marginLeft: 16,
+  },
+  avatarCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  notificationText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: 'bold',
+  avatarLetter: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#FFF',
   },
-  logoutButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  logoutText: {
-    color: '#ef4444',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  welcomeSection: {
-    margin: 20,
-    backgroundColor: '#10B981',
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#FFF',
+    marginBottom: 2,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.8)',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  changeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16,185,129,0.2)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    gap: 2,
+  },
+  changeText: {
+    fontSize: 10,
+    color: '#10B981',
+    fontWeight: '700',
+  },
+  mainContent: {
+    paddingHorizontal: 20,
+  },
+  searchCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: '#F3F4F6',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 6,
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
       },
       android: {
         elevation: 4,
       },
     }),
   },
-  welcomeContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  welcomeLeft: {
-    flex: 1,
-  },
-  welcomeTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    marginBottom: 8,
-  },
-  userRole: {
-    fontSize: 14,
-    color: '#dcfce7',
-    marginBottom: 4,
-  },
-  userEmail: {
-    fontSize: 12,
-    color: '#dcfce7',
-  },
-  welcomeRight: {
-    alignItems: 'center',
-  },
-  dateContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  searchIconBox: {
+    width: 40,
+    height: 40,
     borderRadius: 12,
-    padding: 12,
+    backgroundColor: '#F0F4FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  searchPlaceholder: {
+    flex: 1,
+    fontSize: 15,
+    color: '#9CA3AF',
+    fontWeight: '600',
+  },
+  micButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#F9FAFB',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  dateIcon: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  dateText: {
-    fontSize: 12,
-    color: '#ffffff',
-  },
-  section: {
-    marginHorizontal: 20,
+  tabsContainer: {
     marginBottom: 24,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 16,
+  tabChip: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: '#FFF',
+    marginRight: 10,
+    borderWidth: 2,
+    borderColor: '#F3F4F6',
+  },
+  tabChipActive: {
+    backgroundColor: '#667eea',
+    borderColor: '#667eea',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  tabTextActive: {
+    color: '#FFF',
+  },
+  section: {
+    marginBottom: 28,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -413,179 +800,340 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#111827',
+    letterSpacing: -0.5,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  viewAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   viewAllText: {
     fontSize: 14,
-    color: '#10B981',
-    fontWeight: '600',
+    color: '#667eea',
+    fontWeight: '700',
   },
   actionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    gap: 12,
   },
   actionCard: {
-    width: (width - 60) / 2,
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    alignItems: 'center',
+    width: CARD_WIDTH,
+    borderRadius: 20,
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3.84,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  actionGradient: {
+    padding: 20,
+    minHeight: 140,
+    justifyContent: 'space-between',
+  },
+  actionTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  actionIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  arrowCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionBottom: {
+    marginTop: 12,
+  },
+  actionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFF',
+    marginBottom: 4,
+  },
+  actionDesc: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '600',
+  },
+  productCard: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#F3F4F6',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
       },
       android: {
         elevation: 3,
       },
     }),
   },
-  actionIcon: {
+  productImageBox: {
+    width: 70,
+    height: 70,
+    marginRight: 16,
+    position: 'relative',
+  },
+  productImageGradient: {
+    width: 70,
+    height: 70,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  verifiedBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#10B981',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  productDetails: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  productHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 6,
+  },
+  productName: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#111827',
+    flex: 1,
+    marginRight: 8,
+  },
+  ratingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBEB',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  ratingText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  productMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 4,
+  },
+  farmName: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  productFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  priceText: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#667eea',
+  },
+  freshnessBar: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  freshnessLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+    gap: 4,
+  },
+  freshnessText: {
+    fontSize: 11,
+    color: '#10B981',
+    fontWeight: '700',
+  },
+  freshnessProgress: {
+    height: 4,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  freshnessIndicator: {
+    height: '100%',
+    backgroundColor: '#10B981',
+    borderRadius: 2,
+  },
+  moreButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F9FAFB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  sustainabilityCard: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#10B981',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.25,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  sustainabilityGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
+  },
+  sustainabilityLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  sustainabilityIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  sustainabilityContent: {
+    flex: 1,
+  },
+  tipBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+    gap: 4,
+  },
+  tipBadgeText: {
+    fontSize: 11,
+    color: '#10B981',
+    fontWeight: '800',
+  },
+  sustainabilityTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFF',
+    marginBottom: 4,
+  },
+  sustainabilityText: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.9)',
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  impactGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  impactCard: {
+    flex: 1,
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#F3F4F6',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  impactIconBox: {
     width: 48,
     height: 48,
-    borderRadius: 12,
+    borderRadius: 24,
+    backgroundColor: '#F9FAFB',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
   },
-  actionIconText: {
-    fontSize: 20,
-  },
-  actionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1f2937',
+  impactValue: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#111827',
     marginBottom: 4,
+  },
+  impactLabel: {
+    fontSize: 11,
+    color: '#6B7280',
+    fontWeight: '700',
     textAlign: 'center',
   },
-  actionDescription: {
-    fontSize: 12,
-    color: '#6b7280',
-    textAlign: 'center',
-    lineHeight: 16,
-  },
-  productsContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  productCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  productLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  productIcon: {
-    width: 48,
-    height: 48,
-    backgroundColor: '#10B981',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  productIconText: {
-    fontSize: 20,
-  },
-  productInfo: {
-    flex: 1,
-  },
-  productName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 4,
-  },
-  productLocation: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  locationIcon: {
-    fontSize: 12,
-    marginRight: 4,
-  },
-  farmName: {
-    fontSize: 12,
-    color: '#6b7280',
-  },
-  productRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  starIcon: {
-    fontSize: 16,
-    marginRight: 4,
-  },
-  ratingText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  tipCard: {
-    backgroundColor: '#f0f9ff',
-    borderRadius: 16,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e0f2fe',
-  },
-  tipIcon: {
-    width: 40,
-    height: 40,
-    backgroundColor: '#dcfce7',
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  tipIconText: {
-    fontSize: 18,
-  },
-  tipContent: {
-    flex: 1,
-  },
-  tipTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 4,
-  },
-  tipText: {
-    fontSize: 12,
-    color: '#6b7280',
-    lineHeight: 16,
-  },
-  searchContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  searchIcon: {
-    fontSize: 18,
-    marginRight: 12,
-    color: '#9ca3af',
-  },
-  searchPlaceholder: {
-    fontSize: 14,
-    color: '#9ca3af',
-    flex: 1,
-  },
-  bottomSpacing: {
-    height: 20,
+  bottomSpace: {
+    height: 60,
   },
 });

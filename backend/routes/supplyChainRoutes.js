@@ -5,11 +5,14 @@ const {
   getProductStages, 
   getProducerStages, 
   getBlockchainStats, 
-  verifyBlockchain 
+  verifyBlockchain,
+  getAllStages 
 } = require('../controllers/supplyChainController');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 
+
+router.get('/stages/all',  getAllStages);
 // Public: view product stages
 router.get('/:product_id', getProductStages);
 

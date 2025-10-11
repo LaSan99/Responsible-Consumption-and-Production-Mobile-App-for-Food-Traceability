@@ -19,6 +19,16 @@ exports.addStage = (req, res) => {
   });
 };
 
+exports.getAllStages = (req, res) => {
+  SupplyChain.getAllStages((err, results) => {
+    if (err) {
+      return res.status(500).json({ message: 'Error fetching all blockchain stages', error: err });
+    }
+    res.json(results);
+  });
+};
+
+
 exports.getProductStages = (req, res) => {
   const { product_id } = req.params;
   SupplyChain.getStagesByProduct(product_id, (err, results) => {

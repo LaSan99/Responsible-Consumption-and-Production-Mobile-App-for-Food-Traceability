@@ -8,7 +8,8 @@ import {
   ScrollView,
   Dimensions,
   Alert,
-  RefreshControl
+  RefreshControl,
+  Image
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +23,7 @@ export default function ProductDetailScreen({ route, navigation }) {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     fetchProduct();
@@ -122,6 +124,23 @@ export default function ProductDetailScreen({ route, navigation }) {
           }
           showsVerticalScrollIndicator={false}
         >
+          {/* Product Image */}
+          <View style={styles.imageContainer}>
+            {product.image && !imageError ? (
+              <Image 
+                source={{ uri: product.image }}
+                style={styles.productImage}
+                resizeMode="cover"
+                onError={() => setImageError(true)}
+              />
+            ) : (
+              <View style={styles.placeholderImage}>
+                <Text style={styles.placeholderIcon}>{getProductIcon(product.name)}</Text>
+                <Text style={styles.placeholderText}>No Image</Text>
+              </View>
+            )}
+          </View>
+
           {/* Product Info Card */}
           <View style={styles.productCard}>
             <View style={styles.productHeader}>
@@ -150,6 +169,36 @@ export default function ProductDetailScreen({ route, navigation }) {
                   <Text style={styles.detailValue}>{product.batch_code}</Text>
                 </View>
               </View>
+
+              {product.manufacturer && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="business-outline" size={20} color="#666" />
+                  <View style={styles.detailContent}>
+                    <Text style={styles.detailLabel}>Manufacturer</Text>
+                    <Text style={styles.detailValue}>{product.manufacturer}</Text>
+                  </View>
+                </View>
+              )}
+
+              {product.category && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="folder-outline" size={20} color="#666" />
+                  <View style={styles.detailContent}>
+                    <Text style={styles.detailLabel}>Category</Text>
+                    <Text style={styles.detailValue}>{product.category}</Text>
+                  </View>
+                </View>
+              )}
+
+              {product.sku && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="pricetag-outline" size={20} color="#666" />
+                  <View style={styles.detailContent}>
+                    <Text style={styles.detailLabel}>SKU</Text>
+                    <Text style={styles.detailValue}>{product.sku}</Text>
+                  </View>
+                </View>
+              )}
 
               {product.created_at && (
                 <View style={styles.detailRow}>
@@ -311,6 +360,35 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flex: 1,
+  },
+  imageContainer: {
+    width: width,
+    height: 200,
+    backgroundColor: '#e5e7eb',
+    marginHorizontal: 20,
+    marginTop: 10,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
+  },
+  placeholderImage: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#e5e7eb',
+  },
+  placeholderIcon: {
+    fontSize: 48,
+    marginBottom: 8,
+  },
+  placeholderText: {
+    fontSize: 16,
+    color: '#9ca3af',
+    fontWeight: '500',
   },
   productCard: {
     backgroundColor: '#fff',

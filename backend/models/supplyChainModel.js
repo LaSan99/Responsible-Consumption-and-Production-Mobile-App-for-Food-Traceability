@@ -37,6 +37,22 @@ const SupplyChain = {
     );
   },
 
+    // Get all stages (for all products)
+  getAllStages: (callback) => {
+    db.query(
+      `SELECT 
+         sc.*, 
+         p.name AS product_name, 
+         u.full_name AS updated_by_name
+       FROM supply_chain sc
+       JOIN products p ON sc.product_id = p.id
+       JOIN users u ON sc.updated_by = u.id
+       ORDER BY sc.timestamp DESC`,
+      callback
+    );
+  },
+
+
   // Get stages by producer (for their products)
   getStagesByProducer: (producer_id, callback) => {
     db.query(
