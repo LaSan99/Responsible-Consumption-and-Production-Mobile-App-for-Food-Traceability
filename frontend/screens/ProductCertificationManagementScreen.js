@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Dimensions,
   RefreshControl,
+  TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,11 +25,25 @@ export default function ProductCertificationManagementScreen({ navigation, route
   const [availableCertifications, setAvailableCertifications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredCertifications, setFilteredCertifications] = useState([]);
 
   useEffect(() => {
     loadCertifications();
     loadAvailableCertifications();
   }, []);
+
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredCertifications(certifications);
+    } else {
+      const filtered = certifications.filter(cert =>
+        cert.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        cert.authority.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredCertifications(filtered);
+    }
+  }, [searchQuery, certifications]);
 
   const loadCertifications = async () => {
     try {
@@ -147,7 +162,7 @@ export default function ProductCertificationManagementScreen({ navigation, route
     const certStatus = getCertificationStatus(item.expiry_date);
     
     return (
-      <View style={styles.certificationCard}>
+      <TouchableOpacity style={styles.certificationCard} activeOpacity={0.8}>
         <View style={styles.certificationHeader}>
           <View style={styles.certificationIconContainer}>
             <Text style={styles.certificationIcon}>{getCertificationIcon(item.name)}</Text>
@@ -185,9 +200,17 @@ export default function ProductCertificationManagementScreen({ navigation, route
             <Ionicons name="shield-checkmark" size={16} color="#4CAF50" />
             <Text style={styles.verificationText}>Verified</Text>
           </View>
+          <View style={styles.certificationActions}>
+            <TouchableOpacity style={styles.actionIconButton}>
+              <Ionicons name="eye-outline" size={16} color="#666" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionIconButton}>
+              <Ionicons name="share-outline" size={16} color="#666" />
+            </TouchableOpacity>
+          </View>
           <Text style={styles.certificationId}>ID: #{item.id}</Text>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -266,6 +289,25 @@ export default function ProductCertificationManagementScreen({ navigation, route
           </View>
         </View>
 
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBar}>
+            <Ionicons name="search-outline" size={20} color="#666" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search certifications..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#999"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={20} color="#666" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
         {/* Action Buttons */}
         <View style={styles.actionButtonsContainer}>
           <TouchableOpacity style={styles.actionButton} onPress={handleAddCertification}>
@@ -293,7 +335,7 @@ export default function ProductCertificationManagementScreen({ navigation, route
         <View style={styles.certificationsContainer}>
           {certifications.length > 0 ? (
             <FlatList
-              data={certifications}
+              data={filteredCertifications}
               renderItem={renderCertificationItem}
               keyExtractor={(item) => item.id.toString()}
               showsVerticalScrollIndicator={false}
@@ -306,6 +348,15 @@ export default function ProductCertificationManagementScreen({ navigation, route
                 />
               }
               contentContainerStyle={styles.listContent}
+              ListEmptyComponent={() => (
+                <View style={styles.noResultsContainer}>
+                  <Ionicons name="search-outline" size={48} color="#ccc" />
+                  <Text style={styles.noResultsText}>No certifications found</Text>
+                  <Text style={styles.noResultsSubtext}>
+                    Try adjusting your search terms
+                  </Text>
+                </View>
+              )}
             />
           ) : (
             renderEmptyState()
@@ -567,5 +618,56 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
+  },
+  searchContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 16,
+    color: '#333',
+  },
+  certificationActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionIconButton: {
+    padding: 8,
+    marginLeft: 8,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+  },
+  noResultsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  noResultsText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#666',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  noResultsSubtext: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
   },
 });
