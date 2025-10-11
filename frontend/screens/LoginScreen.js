@@ -1,586 +1,376 @@
-// NearestSuppliersByProduct.jsx
-import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, ActivityIndicator, Alert, StyleSheet, Platform, TouchableOpacity } from "react-native";
-import MapView, { Marker, Circle } from "react-native-maps";
-import * as Location from "expo-location";
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  StyleSheet,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  ActivityIndicator,
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import apiConfig from "../config/api";
 
-// --- simple haversine distance in KM ---
-const distanceKm = (a, b) => {
-  const R = 6371;
-  const toRad = (x) => (x * Math.PI) / 180;
-  const dLat = toRad(b.latitude - a.latitude);
-  const dLon = toRad(b.longitude - a.longitude);
-  const lat1 = toRad(a.latitude);
-  const lat2 = toRad(b.latitude);
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(h));
-};
+const { width, height } = Dimensions.get("window");
 
-const NEAREST_COUNT = 5;
-const MAX_RADIUS_KM = 25;
+export default function LoginScreen({ navigation }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
 
-// Android emulator can't use "localhost"
-const baseHost = Platform.OS === "android" ? "http://10.0.2.2:5000" : "http://localhost:5000";
-
-// Mock data for testing when API fails
-const MOCK_SUPPLIERS = [
-  {
-    id: 1,
-    stage_name: "Harvested Apples",
-    location: "Malabe, Colombo",
-    description: "Apples harvested from orchard",
-    updated_by_name: "Daniru",
-    latitude: 6.9022,
-    longitude: 79.9633
-  },
-  {
-    id: 2,
-    stage_name: "Processing Center",
-    location: "Kaduwela, Colombo",
-    description: "Quality check and processing",
-    updated_by_name: "Saman",
-    latitude: 6.9353,
-    longitude: 79.9850
-  },
-  {
-    id: 3,
-    stage_name: "Distribution Hub",
-    location: "Maharagama, Colombo",
-    description: "Distribution to retailers",
-    updated_by_name: "Kamal",
-    latitude: 6.8481,
-    longitude: 79.9264
-  },
-  {
-    id: 4,
-    stage_name: "Storage Facility",
-    location: "Dehiwala, Colombo",
-    description: "Cold storage facility",
-    updated_by_name: "Nimal",
-    latitude: 6.8525,
-    longitude: 79.8631
-  }
-];
-
-// Comprehensive location database for Sri Lanka
-const SRI_LANKA_LOCATIONS = {
-  "malabe": { latitude: 6.9022, longitude: 79.9633 },
-  "colombo": { latitude: 6.9271, longitude: 79.8612 },
-  "kaduwela": { latitude: 6.9353, longitude: 79.9850 },
-  "maharagama": { latitude: 6.8481, longitude: 79.9264 },
-  "dehiwala": { latitude: 6.8525, longitude: 79.8631 },
-  "mount lavinia": { latitude: 6.8275, longitude: 79.8625 },
-  "kotte": { latitude: 6.8917, longitude: 79.9075 },
-  "piliyandala": { latitude: 6.7958, longitude: 79.9389 },
-  "homagama": { latitude: 6.8407, longitude: 80.0136 },
-  "ratmalana": { latitude: 6.8219, longitude: 79.8861 },
-  "moratuwa": { latitude: 6.7825, longitude: 79.8806 },
-};
-
-// Function to geocode location text to coordinates
-const geocodeLocation = (locationText) => {
-  if (!locationText) return null;
-  
-  const normalizedLocation = locationText.toLowerCase().trim();
-  
-  console.log(`Geocoding: "${locationText}" -> "${normalizedLocation}"`);
-  
-  // Check if we have predefined coordinates for this location
-  for (const [key, coords] of Object.entries(SRI_LANKA_LOCATIONS)) {
-    if (normalizedLocation.includes(key)) {
-      console.log(`Found match: ${key} ->`, coords);
-      return coords;
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Error", "Please fill in all fields");
+      return;
     }
-  }
-  
-  return null;
-};
 
-export default function NearestSuppliersByProduct({ productId = "1" }) { // Default productId
-  const [userLocation, setUserLocation] = useState(null);
-  const [suppliers, setSuppliers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [locationError, setLocationError] = useState(null);
-  const [apiError, setApiError] = useState(null);
-  const [usingMockData, setUsingMockData] = useState(false);
-
-  const loadSuppliers = async (productIdToLoad) => {
+    setIsLoading(true);
     try {
-      console.log(`Fetching suppliers for product ${productIdToLoad}...`);
-      const url = `${baseHost}/supply-chain/${productIdToLoad}`;
-      const res = await axios.get(url, { timeout: 10000 });
-      console.log("API Response received:", res.data);
+      const response = await axios.post(`${apiConfig.baseURL}/auth/login`, {
+        email,
+        password,
+      });
 
-      // Handle different response formats
-      const raw = Array.isArray(res.data)
-        ? res.data
-        : res.data?.suppliers ?? res.data?.stages ?? [];
-
-      console.log('Raw suppliers data:', raw);
-
-      if (raw.length === 0) {
-        throw new Error("No suppliers data found in response");
-      }
-
-      // Normalize supplier data and geocode locations
-      const normalized = raw
-        .map((s, index) => {
-          // First try explicit coordinates
-          let coords = null;
-          if (s.latitude && s.longitude) {
-            coords = { latitude: Number(s.latitude), longitude: Number(s.longitude) };
-          } else if (s.lat && s.lng) {
-            coords = { latitude: Number(s.lat), longitude: Number(s.lng) };
-          } else {
-            // Geocode from location text
-            const locationText = s.location ?? s.location_text ?? s.address ?? s.city;
-            coords = geocodeLocation(locationText);
-          }
-
-          // If still no coordinates, create a fallback
-          if (!coords) {
-            const variation = (index * 0.002) % 0.02;
-            coords = {
-              latitude: 6.9271 + variation,
-              longitude: 79.8612 + variation,
-            };
-            console.warn(`Using fallback coordinates for: ${s.location}`, coords);
-          }
-
-          return {
-            id: s.id ?? s.supplier_id ?? s.stage_id ?? `supplier-${index}-${Date.now()}`,
-            name: s.stage_name ?? s.name ?? s.supplier_name ?? `Location ${index + 1}`,
-            coords: coords,
-            address: s.location ?? s.address ?? s.location_text ?? s.city ?? 'Unknown location',
-            description: s.description,
-            notes: s.notes,
-            updated_by: s.updated_by,
-            updated_by_name: s.updated_by_name,
-            timestamp: s.timestamp,
-          };
+      // Store token and user info
+      await AsyncStorage.setItem("token", response.data.token);
+      await AsyncStorage.setItem(
+        "user",
+        JSON.stringify({
+          full_name: response.data.full_name,
+          role: response.data.role,
+          email,
         })
-        .filter((s) => 
-          Number.isFinite(s.coords?.latitude) && 
-          Number.isFinite(s.coords?.longitude)
-        );
+      );
 
-      console.log('Normalized suppliers:', normalized);
-      setSuppliers(normalized);
-      setUsingMockData(false);
-      setApiError(null);
-
+      // App.js will automatically detect the authentication change and navigate to MainTabs
     } catch (error) {
-      console.error("API Error:", error.message);
-      
-      // Use mock data as fallback
-      console.log("Using mock data as fallback...");
-      const normalizedMock = MOCK_SUPPLIERS.map((s, index) => ({
-        id: s.id ?? `mock-${index}`,
-        name: s.stage_name,
-        coords: { latitude: s.latitude, longitude: s.longitude },
-        address: s.location,
-        description: s.description,
-        updated_by_name: s.updated_by_name,
-      }));
-      
-      setSuppliers(normalizedMock);
-      setUsingMockData(true);
-      setApiError(`API Error: ${error.message}. Using sample data.`);
+      Alert.alert("Error", "Invalid credentials. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
-
-  useEffect(() => {
-    let isMounted = true;
-
-    (async () => {
-      try {
-        // 1) Get user's REAL current location with high accuracy
-        console.log("Requesting location permission...");
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        
-        if (status !== "granted") {
-          const errorMsg = "Location permission denied. Please enable location services to see your actual position.";
-          console.log(errorMsg);
-          if (isMounted) {
-            setLocationError(errorMsg);
-          }
-          return;
-        }
-
-        console.log("Getting current position...");
-        // Use high accuracy for real device location
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-          timeout: 15000,
-        });
-
-        if (isMounted) {
-          const userCoords = {
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-          };
-          
-          console.log("Real user location obtained:", userCoords);
-          setUserLocation(userCoords);
-          setLocationError(null);
-        }
-
-        // 2) Load suppliers with the product ID (use default if not provided)
-        const productIdToLoad = productId || "1";
-        await loadSuppliers(productIdToLoad);
-
-      } catch (error) {
-        console.error("Load error:", error);
-        if (isMounted) {
-          if (error.message.includes("location") || error.message.includes("permission")) {
-            setLocationError(error.message);
-          }
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [productId]);
-
-  const nearestSuppliers = useMemo(() => {
-    if (!userLocation) return [];
-    
-    const suppliersWithDistance = suppliers.map((s) => ({ 
-      ...s, 
-      km: distanceKm(userLocation, s.coords) 
-    }));
-    
-    console.log('Suppliers with distances:', suppliersWithDistance);
-    
-    const nearest = suppliersWithDistance
-      .filter((s) => s.km <= MAX_RADIUS_KM)
-      .sort((a, b) => a.km - b.km)
-      .slice(0, NEAREST_COUNT);
-    
-    console.log('Nearest suppliers:', nearest);
-    return nearest;
-  }, [userLocation, suppliers]);
-
-  // Calculate region for map that includes user location and all suppliers
-  const mapRegion = useMemo(() => {
-    if (!userLocation) return null;
-    
-    const allPoints = [userLocation, ...suppliers.map(s => s.coords)];
-    
-    const latitudes = allPoints.map(p => p.latitude);
-    const longitudes = allPoints.map(p => p.longitude);
-    
-    const minLat = Math.min(...latitudes);
-    const maxLat = Math.max(...latitudes);
-    const minLng = Math.min(...longitudes);
-    const maxLng = Math.max(...longitudes);
-    
-    // Calculate deltas with padding
-    const latDelta = Math.max((maxLat - minLat) * 1.5, 0.05);
-    const lngDelta = Math.max((maxLng - minLng) * 1.5, 0.05);
-    
-    const region = {
-      latitude: (minLat + maxLat) / 2,
-      longitude: (minLng + maxLng) / 2,
-      latitudeDelta: latDelta,
-      longitudeDelta: lngDelta,
-    };
-    
-    console.log('Map region calculated:', region);
-    return region;
-  }, [userLocation, suppliers]);
-
-  const retryLoad = () => {
-    setLoading(true);
-    const productIdToLoad = productId || "1";
-    loadSuppliers(productIdToLoad).finally(() => setLoading(false));
-  };
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#0000ff" />
-        <Text style={styles.loadingText}>Getting your real location...</Text>
-        <Text style={styles.loadingSubtext}>Please ensure location services are enabled</Text>
-      </View>
-    );
-  }
-
-  if (locationError && !userLocation) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>📍 Location Access Required</Text>
-        <Text style={styles.errorSubtext}>{locationError}</Text>
-        <Text style={styles.infoText}>
-          To see your actual position on the map, please grant location permissions in your device settings.
-        </Text>
-      </View>
-    );
-  }
 
   return (
-    <View style={{ flex: 1 }}>
-      <MapView
-        style={StyleSheet.absoluteFill}
-        initialRegion={mapRegion}
-        region={mapRegion}
-        showsUserLocation={true}
-        showsMyLocationButton={true}
+    <LinearGradient
+      colors={["#4CAF50", "#8BC34A", "#CDDC39"]}
+      style={styles.gradient}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.container}
       >
-        {/* User's REAL current location with custom marker */}
-        {userLocation && (
-          <Marker 
-            coordinate={userLocation} 
-            pinColor="blue"
-            title="Your Actual Location"
-            description={`Lat: ${userLocation.latitude.toFixed(6)}, Lng: ${userLocation.longitude.toFixed(6)}`}
-          />
-        )}
-        
-        {/* Search radius circle around user */}
-        {userLocation && (
-          <Circle 
-            center={userLocation} 
-            radius={MAX_RADIUS_KM * 1000} 
-            fillColor="rgba(0, 100, 255, 0.15)"
-            strokeColor="rgba(0, 100, 255, 0.5)"
-            strokeWidth={2}
-          />
-        )}
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header Section */}
+          <View style={styles.header}>
+            <View style={styles.logoContainer}>
+              <Ionicons name="leaf" size={50} color="#fff" />
+            </View>
+            <Text style={styles.appName}>FoodTrace</Text>
+            <Text style={styles.tagline}>
+              Responsible Consumption & Production
+            </Text>
+          </View>
 
-        {/* All suppliers */}
-        {suppliers.map((supplier) => (
-          <Marker
-            key={supplier.id}
-            coordinate={supplier.coords}
-            pinColor="green"
-            title={supplier.name}
-            description={`${supplier.address} • Updated by: ${supplier.updated_by_name || 'Unknown'}`}
-          />
-        ))}
+          {/* Login Form */}
+          <View style={styles.formContainer}>
+            <Text style={styles.welcomeText}>Welcome Back!</Text>
+            <Text style={styles.subtitleText}>
+              Sign in to track your sustainable journey
+            </Text>
 
-        {/* Nearest suppliers with special marker */}
-        {nearestSuppliers.map((supplier) => (
-          <Marker
-            key={`nearest-${supplier.id}`}
-            coordinate={supplier.coords}
-            pinColor="red"
-            title={`📍 ${supplier.name} (${supplier.km.toFixed(1)} km)`}
-            description={`${supplier.address} • ${supplier.updated_by_name ? `Updated by: ${supplier.updated_by_name}` : ''}`}
-          />
-        ))}
-      </MapView>
+            {/* Email Input */}
+            <View
+              style={[
+                styles.inputContainer,
+                emailFocused && styles.inputContainerFocused,
+              ]}
+            >
+              <Ionicons
+                name="mail-outline"
+                size={20}
+                color={emailFocused ? "#4CAF50" : "#666"}
+                style={styles.inputIcon}
+              />
+              <TextInput
+                placeholder="Email"
+                placeholderTextColor="#999"
+                style={styles.input}
+                value={email}
+                onChangeText={setEmail}
+                onFocus={() => setEmailFocused(true)}
+                onBlur={() => setEmailFocused(false)}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
 
-      {/* Information panel */}
-      <View style={styles.infoPanel}>
-        <Text style={styles.panelTitle}>
-          Product #{productId || "1"} - Supply Chain
-          {usingMockData && " (Sample Data)"}
-        </Text>
-        
-        {apiError && (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorBannerText}>{apiError}</Text>
-            <TouchableOpacity onPress={retryLoad} style={styles.retryButton}>
-              <Text style={styles.retryButtonText}>Retry</Text>
+            {/* Password Input */}
+            <View
+              style={[
+                styles.inputContainer,
+                passwordFocused && styles.inputContainerFocused,
+              ]}
+            >
+              <Ionicons
+                name="lock-closed-outline"
+                size={20}
+                color={passwordFocused ? "#4CAF50" : "#666"}
+                style={styles.inputIcon}
+              />
+              <TextInput
+                placeholder="Password"
+                placeholderTextColor="#999"
+                style={styles.input}
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+                onFocus={() => setPasswordFocused(true)}
+                onBlur={() => setPasswordFocused(false)}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.passwordToggle}
+              >
+                <Ionicons
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color="#666"
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* Forgot Password */}
+            <TouchableOpacity style={styles.forgotPassword}>
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
             </TouchableOpacity>
-          </View>
-        )}
-        
-        <View style={styles.stats}>
-          <Text style={styles.statText}>
-            📍 Your Location: {userLocation?.latitude.toFixed(6)}, {userLocation?.longitude.toFixed(6)}
-          </Text>
-          <Text style={styles.statText}>
-            📋 Total Locations: {suppliers.length} | 🎯 Within {MAX_RADIUS_KM}km: {nearestSuppliers.length}
-          </Text>
-        </View>
 
-        {nearestSuppliers.length === 0 ? (
-          <Text style={styles.noSuppliers}>
-            No supply chain locations within {MAX_RADIUS_KM} km of your position
-          </Text>
-        ) : (
-          <View>
-            <Text style={styles.nearestTitle}>Nearest locations to you:</Text>
-            {nearestSuppliers.map((supplier) => (
-              <Text key={supplier.id} style={styles.supplierItem}>
-                • {supplier.name} – {supplier.km.toFixed(1)} km – {supplier.address}
-              </Text>
-            ))}
+            {/* Login Button */}
+            <TouchableOpacity
+              style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
+              onPress={handleLogin}
+              disabled={isLoading}
+            >
+              <LinearGradient
+                colors={["#4CAF50", "#45a049"]}
+                style={styles.loginButtonGradient}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.loginButtonText}>Sign In</Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+
+            {/* Divider */}
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Register Section */}
+            <View style={styles.registerSection}>
+              <Text style={styles.registerText}>Don't have an account?</Text>
+              <TouchableOpacity
+                onPress={() => navigation.navigate("Register")}
+                style={styles.registerButton}
+              >
+                <Text style={styles.registerButtonText}>Sign Up</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        )}
-        
-        {/* Legend */}
-        <View style={styles.legend}>
-          <Text style={styles.legendTitle}>Map Legend:</Text>
-          <View style={styles.legendItem}>
-            <View style={[styles.colorDot, { backgroundColor: 'blue' }]} />
-            <Text style={styles.legendText}>Your actual location</Text>
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              Join the movement for sustainable food production
+            </Text>
           </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.colorDot, { backgroundColor: 'red' }]} />
-            <Text style={styles.legendText}>Nearest within {MAX_RADIUS_KM}km</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.colorDot, { backgroundColor: 'green' }]} />
-            <Text style={styles.legendText}>Other locations</Text>
-          </View>
-        </View>
-      </View>
-    </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  center: { 
-    flex: 1, 
-    alignItems: "center", 
-    justifyContent: "center",
-    padding: 20,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  loadingSubtext: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-  },
-  errorText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#d32f2f',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  errorSubtext: {
-    fontSize: 16,
-    color: '#d32f2f',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  infoPanel: {
-    position: "absolute",
-    left: 12,
-    right: 12,
-    bottom: 12,
-    backgroundColor: "white",
-    padding: 16,
-    borderRadius: 12,
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    maxHeight: '50%',
-  },
-  panelTitle: { 
-    fontWeight: "700", 
-    fontSize: 18,
-    marginBottom: 12,
-    color: '#1a1a1a',
-  },
-  errorBanner: {
-    backgroundColor: '#ffebee',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  errorBannerText: {
-    color: '#d32f2f',
-    fontSize: 12,
+  gradient: {
     flex: 1,
   },
-  retryButton: {
-    backgroundColor: '#d32f2f',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+  container: {
+    flex: 1,
   },
-  retryButtonText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: "space-between",
+    paddingHorizontal: 30,
+    paddingVertical: 50,
   },
-  stats: {
-    marginBottom: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+  header: {
+    alignItems: "center",
+    marginBottom: 40,
   },
-  statText: {
-    fontSize: 12,
-    color: '#555',
-    marginBottom: 4,
-    fontWeight: '500',
+  logoContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
   },
-  nearestTitle: {
-    fontWeight: "600",
+  appName: {
+    fontSize: 32,
+    fontWeight: "bold",
+    color: "#fff",
+    marginBottom: 5,
+  },
+  tagline: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.8)",
+    textAlign: "center",
+  },
+  formContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 25,
+    padding: 30,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  welcomeText: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: "center",
     marginBottom: 8,
-    color: '#444',
+  },
+  subtitleText: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 30,
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f8f8f8",
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  inputContainerFocused: {
+    borderColor: "#4CAF50",
+    backgroundColor: "#f0f8f0",
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  input: {
+    flex: 1,
+    height: 50,
+    fontSize: 16,
+    color: "#333",
+  },
+  passwordToggle: {
+    padding: 5,
+  },
+  forgotPassword: {
+    alignSelf: "flex-end",
+    marginBottom: 25,
+  },
+  forgotPasswordText: {
+    color: "#4CAF50",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  loginButton: {
+    borderRadius: 12,
+    marginBottom: 25,
+    shadowColor: "#4CAF50",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  loginButtonDisabled: {
+    opacity: 0.7,
+  },
+  loginButtonGradient: {
+    paddingVertical: 15,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loginButtonText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 25,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#e0e0e0",
+  },
+  dividerText: {
+    marginHorizontal: 15,
+    color: "#999",
     fontSize: 14,
   },
-  noSuppliers: {
-    fontStyle: 'italic',
-    color: '#666',
-    textAlign: 'center',
-    marginVertical: 12,
-    fontSize: 13,
+  registerSection: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  supplierItem: {
-    fontSize: 12,
-    marginBottom: 6,
-    color: '#333',
-    lineHeight: 16,
+  registerText: {
+    color: "#666",
+    fontSize: 16,
   },
-  legend: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+  registerButton: {
+    marginLeft: 5,
   },
-  legendTitle: {
-    fontWeight: "600",
-    marginBottom: 8,
-    color: '#555',
-    fontSize: 13,
+  registerButtonText: {
+    color: "#4CAF50",
+    fontSize: 16,
+    fontWeight: "bold",
   },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
+  footer: {
+    alignItems: "center",
+    marginTop: 30,
   },
-  colorDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 8,
-  },
-  legendText: {
-    fontSize: 11,
-    color: '#666',
+  footerText: {
+    color: "rgba(255, 255, 255, 0.8)",
+    fontSize: 14,
+    textAlign: "center",
   },
 });
