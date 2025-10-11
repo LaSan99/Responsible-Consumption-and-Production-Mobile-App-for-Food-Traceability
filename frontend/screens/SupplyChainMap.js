@@ -15,7 +15,6 @@ import {
 } from "react-native";
 import MapView, { Marker, Circle } from "react-native-maps";
 import * as Location from "expo-location";
-import axios from "axios";
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native'; // 👈 Add this
 
@@ -35,9 +34,6 @@ const distanceKm = (a, b) => {
 
 const NEAREST_COUNT = 5;
 const MAX_RADIUS_KM = 25;
-
-// Android emulator can't use "localhost"
-const baseHost = Platform.OS === "android" ? "http://10.0.2.2:5000" : "http://localhost:5000";
 
 // Mock data for testing when API fails
 const MOCK_SUPPLIERS = [
@@ -137,89 +133,22 @@ export default function NearestSuppliersByProduct({ productId = "1" }) {
   const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
 
-  const loadSuppliers = async () => {
-    try {
-      console.log(`Fetching all supply chain stages...`);
-      
-      const url = `${baseHost}/supply-chain/stages/all`;
-      console.log("API URL:", url);
-      
-      const res = await axios.get(url, { timeout: 8000 });
-      console.log("API Response received:", res.data);
-
-      let raw = [];
-      
-      if (Array.isArray(res.data)) {
-        raw = res.data;
-      } else if (res.data && typeof res.data === 'object') {
-        raw = res.data.stages || res.data.suppliers || res.data.data || [];
-      }
-
-      if (raw.length === 0) {
-        throw new Error("No stages data found in response");
-      }
-
-      const normalized = raw
-        .map((stage, index) => {
-          let coords = null;
-          if (stage.latitude && stage.longitude) {
-            coords = { latitude: Number(stage.latitude), longitude: Number(stage.longitude) };
-          } else if (stage.lat && stage.lng) {
-            coords = { latitude: Number(stage.lat), longitude: Number(stage.lng) };
-          } else {
-            const locationText = stage.location || stage.location_text || stage.address || stage.city || 'Colombo';
-            coords = geocodeLocation(locationText);
-          }
-
-          if (!coords) {
-            const variation = (index * 0.002) % 0.02;
-            coords = {
-              latitude: 6.9271 + variation,
-              longitude: 79.8612 + variation,
-            };
-          }
-
-          return {
-            id: stage.id || stage.stage_id || `stage-${index}-${Date.now()}`,
-            name: stage.stage_name || stage.name || `Stage ${index + 1}`,
-            coords: coords,
-            address: stage.location || stage.address || stage.location_text || stage.city || 'Unknown location',
-            description: stage.description,
-            notes: stage.notes,
-            updated_by: stage.updated_by,
-            updated_by_name: stage.updated_by_name,
-            timestamp: stage.timestamp,
-            product_id: stage.product_id,
-          };
-        })
-        .filter((stage) => 
-          stage.coords && 
-          Number.isFinite(stage.coords.latitude) && 
-          Number.isFinite(stage.coords.longitude)
-        );
-
-      setSuppliers(normalized);
-      setUsingMockData(false);
-      setApiError(null);
-
-    } catch (error) {
-      console.error("API Error:", error.message);
-      
-      const normalizedMock = MOCK_SUPPLIERS.map((s, index) => ({
-        id: s.id || `mock-${index}`,
-        name: s.stage_name,
-        coords: { latitude: s.latitude, longitude: s.longitude },
-        address: s.location,
-        description: s.description,
-        notes: s.notes,
-        updated_by_name: s.updated_by_name,
-        timestamp: s.timestamp,
-      }));
-      
-      setSuppliers(normalizedMock);
-      setUsingMockData(true);
-      setApiError(`Network connection issue. Showing sample data.`);
-    }
+  const loadSuppliers = () => {
+    // Use only dummy data - no API calls
+    const normalizedMock = MOCK_SUPPLIERS.map((s, index) => ({
+      id: s.id || `mock-${index}`,
+      name: s.stage_name,
+      coords: { latitude: s.latitude, longitude: s.longitude },
+      address: s.location,
+      description: s.description,
+      notes: s.notes,
+      updated_by_name: s.updated_by_name,
+      timestamp: s.timestamp,
+    }));
+    
+    setSuppliers(normalizedMock);
+    setUsingMockData(true);
+    setApiError(null);
   };
 
   useEffect(() => {
@@ -250,7 +179,7 @@ export default function NearestSuppliersByProduct({ productId = "1" }) {
           }
         }
 
-        await loadSuppliers();
+        loadSuppliers();
 
       } catch (error) {
         console.error("Load error:", error);
@@ -301,9 +230,8 @@ export default function NearestSuppliersByProduct({ productId = "1" }) {
   const retryLoad = () => {
     setLoading(true);
     setApiError(null);
-    loadSuppliers().finally(() => {
-      setTimeout(() => setLoading(false), 1000);
-    });
+    loadSuppliers();
+    setTimeout(() => setLoading(false), 1000);
   };
 
   const handleSupplierPress = (supplier) => {

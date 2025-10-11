@@ -4,20 +4,25 @@ import {
   Text, 
   StyleSheet, 
   ActivityIndicator, 
+  TouchableOpacity, 
   ScrollView,
-  Image,
-  TouchableOpacity,
-  Dimensions
+  Dimensions,
+  Alert,
+  RefreshControl,
+  Image
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import apiConfig from "../config/api";
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export default function ProductDetailScreen({ route, navigation }) {
   const { productId } = route.params;
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
@@ -30,15 +35,41 @@ export default function ProductDetailScreen({ route, navigation }) {
       setProduct(response.data);
     } catch (error) {
       console.error('Error fetching product', error);
+      Alert.alert('Error', 'Failed to load product details');
     } finally {
       setLoading(false);
     }
   };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchProduct();
+    setRefreshing(false);
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Not specified';
+    const date = new Date(dateString);
+    return date.toLocaleDateString();
+  };
+
+  const getProductIcon = (productName) => {
+    const name = productName.toLowerCase();
+    if (name.includes('organic')) return '🌱';
+    if (name.includes('fruit')) return '🍎';
+    if (name.includes('vegetable')) return '🥕';
+    if (name.includes('grain')) return '🌾';
+    if (name.includes('dairy')) return '🥛';
+    if (name.includes('meat')) return '🥩';
+    if (name.includes('fish')) return '🐟';
+    if (name.includes('spice')) return '🌶️';
+    return '📦';
+  };
+
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#6366f1" />
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#9C27B0" />
         <Text style={styles.loadingText}>Loading product details...</Text>
       </View>
     );
@@ -46,257 +77,480 @@ export default function ProductDetailScreen({ route, navigation }) {
 
   if (!product) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorIcon}>📦</Text>
+      <View style={styles.errorContainer}>
+        <Ionicons name="alert-circle-outline" size={64} color="#F44336" />
         <Text style={styles.errorTitle}>Product Not Found</Text>
-        <Text style={styles.errorText}>The product you're looking for doesn't exist</Text>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.backButtonText}>Go Back</Text>
+        <Text style={styles.errorSubtitle}>
+          The product you're looking for doesn't exist or has been removed.
+        </Text>
+        <TouchableOpacity style={styles.retryButton} onPress={fetchProduct}>
+          <Text style={styles.retryButtonText}>Try Again</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Product Image */}
-      <View style={styles.imageContainer}>
-        {product.image && !imageError ? (
-          <Image 
-            source={{ uri: product.image }}
-            style={styles.productImage}
-            resizeMode="cover"
-            onError={() => setImageError(true)}
-          />
-        ) : (
-          <View style={styles.placeholderImage}>
-            <Text style={styles.placeholderIcon}>📦</Text>
-            <Text style={styles.placeholderText}>No Image</Text>
+    <LinearGradient
+      colors={['#9C27B0', '#E1BEE7', '#F3E5F5']}
+      style={styles.gradient}
+    >
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          >
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>Product Details</Text>
           </View>
-        )}
-      </View>
-
-      {/* Content Section */}
-      <View style={styles.contentContainer}>
-        {/* Product Name */}
-        <Text style={styles.title}>{product.name}</Text>
-
-        {/* Batch Code Badge */}
-        <View style={styles.badgeContainer}>
-          <View style={styles.badge}>
-            <Text style={styles.badgeLabel}>Batch Code</Text>
-            <Text style={styles.badgeValue}>{product.batch_code}</Text>
-          </View>
+          <TouchableOpacity style={styles.shareButton}>
+            <Ionicons name="share-outline" size={24} color="#fff" />
+          </TouchableOpacity>
         </View>
 
-        {/* Description Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Description</Text>
-          <Text style={styles.description}>
-            {product.description || 'No description available'}
-          </Text>
-        </View>
-
-        {/* Product Details Cards */}
-        {product.manufacturer && (
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Manufacturer</Text>
-            <Text style={styles.infoValue}>{product.manufacturer}</Text>
-          </View>
-        )}
-
-        {product.category && (
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Category</Text>
-            <Text style={styles.infoValue}>{product.category}</Text>
-          </View>
-        )}
-
-        {product.sku && (
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>SKU</Text>
-            <Text style={styles.infoValue}>{product.sku}</Text>
-          </View>
-        )}
-
-        {/* Action Button */}
-        <TouchableOpacity
-          style={styles.certButton}
-          onPress={() => navigation.navigate('ProductCertifications', { productId })}
+        <ScrollView
+          style={styles.scrollContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#9C27B0']}
+              tintColor="#9C27B0"
+            />
+          }
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.certButtonText}>View Certifications</Text>
-          <Text style={styles.certButtonIcon}>→</Text>
-        </TouchableOpacity>
+          {/* Product Image */}
+          <View style={styles.imageContainer}>
+            {product.image && !imageError ? (
+              <Image 
+                source={{ uri: product.image }}
+                style={styles.productImage}
+                resizeMode="cover"
+                onError={() => setImageError(true)}
+              />
+            ) : (
+              <View style={styles.placeholderImage}>
+                <Text style={styles.placeholderIcon}>{getProductIcon(product.name)}</Text>
+                <Text style={styles.placeholderText}>No Image</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Product Info Card */}
+          <View style={styles.productCard}>
+            <View style={styles.productHeader}>
+              <View style={styles.productIconContainer}>
+                <Text style={styles.productIcon}>{getProductIcon(product.name)}</Text>
+              </View>
+              <View style={styles.productInfo}>
+                <Text style={styles.productName}>{product.name}</Text>
+                <Text style={styles.productBatch}>Batch: {product.batch_code}</Text>
+              </View>
+            </View>
+
+            {product.description && (
+              <View style={styles.descriptionContainer}>
+                <Text style={styles.descriptionLabel}>Description</Text>
+                <Text style={styles.descriptionText}>{product.description}</Text>
+              </View>
+            )}
+
+            {/* Product Details */}
+            <View style={styles.detailsContainer}>
+              <View style={styles.detailRow}>
+                <Ionicons name="barcode-outline" size={20} color="#666" />
+                <View style={styles.detailContent}>
+                  <Text style={styles.detailLabel}>Batch Code</Text>
+                  <Text style={styles.detailValue}>{product.batch_code}</Text>
+                </View>
+              </View>
+
+              {product.manufacturer && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="business-outline" size={20} color="#666" />
+                  <View style={styles.detailContent}>
+                    <Text style={styles.detailLabel}>Manufacturer</Text>
+                    <Text style={styles.detailValue}>{product.manufacturer}</Text>
+                  </View>
+                </View>
+              )}
+
+              {product.category && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="folder-outline" size={20} color="#666" />
+                  <View style={styles.detailContent}>
+                    <Text style={styles.detailLabel}>Category</Text>
+                    <Text style={styles.detailValue}>{product.category}</Text>
+                  </View>
+                </View>
+              )}
+
+              {product.sku && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="pricetag-outline" size={20} color="#666" />
+                  <View style={styles.detailContent}>
+                    <Text style={styles.detailLabel}>SKU</Text>
+                    <Text style={styles.detailValue}>{product.sku}</Text>
+                  </View>
+                </View>
+              )}
+
+              {product.created_at && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="calendar-outline" size={20} color="#666" />
+                  <View style={styles.detailContent}>
+                    <Text style={styles.detailLabel}>Created Date</Text>
+                    <Text style={styles.detailValue}>{formatDate(product.created_at)}</Text>
+                  </View>
+                </View>
+              )}
+
+              {product.updated_at && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="time-outline" size={20} color="#666" />
+                  <View style={styles.detailContent}>
+                    <Text style={styles.detailLabel}>Last Updated</Text>
+                    <Text style={styles.detailValue}>{formatDate(product.updated_at)}</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* Action Buttons */}
+          <View style={styles.actionButtonsContainer}>
+            <TouchableOpacity 
+              style={styles.primaryButton} 
+              onPress={() => navigation.navigate('ProductCertifications', { 
+                productId, 
+                productName: product.name 
+              })}
+            >
+              <LinearGradient
+                colors={['#9C27B0', '#7B1FA2']}
+                style={styles.primaryButtonGradient}
+              >
+                <Ionicons name="ribbon-outline" size={20} color="#fff" />
+                <Text style={styles.primaryButtonText}>View Certifications</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.secondaryButton}
+              onPress={() => navigation.navigate('ProductCertificationManagement', { 
+                productId, 
+                productName: product.name 
+              })}
+            >
+              <LinearGradient
+                colors={['#2196F3', '#1976D2']}
+                style={styles.secondaryButtonGradient}
+              >
+                <Ionicons name="settings-outline" size={20} color="#fff" />
+                <Text style={styles.secondaryButtonText}>Manage Certifications</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
+          {/* Additional Info Card */}
+          <View style={styles.infoCard}>
+            <View style={styles.infoHeader}>
+              <Ionicons name="information-circle-outline" size={24} color="#9C27B0" />
+              <Text style={styles.infoTitle}>Product Information</Text>
+            </View>
+            <Text style={styles.infoText}>
+              This product is part of our traceability system. You can view and manage its certifications 
+              to ensure quality and compliance with industry standards.
+            </Text>
+          </View>
+        </ScrollView>
       </View>
-    </ScrollView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  gradient: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa'
   },
-  center: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    padding: 20
+    backgroundColor: '#f5f5f5',
   },
   loadingText: {
-    marginTop: 12,
+    marginTop: 16,
     fontSize: 16,
-    color: '#6b7280'
+    color: '#666',
   },
-  errorIcon: {
-    fontSize: 64,
-    marginBottom: 16
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+    backgroundColor: '#f5f5f5',
   },
   errorTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 8
+    color: '#F44336',
+    marginTop: 16,
+    marginBottom: 8,
   },
-  errorText: {
+  errorSubtitle: {
     fontSize: 16,
-    color: '#6b7280',
+    color: '#666',
     textAlign: 'center',
-    marginBottom: 24
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  retryButton: {
+    backgroundColor: '#9C27B0',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   backButton: {
-    backgroundColor: '#6366f1',
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 8
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  backButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600'
+  headerContent: {
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: 20,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  shareButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollContainer: {
+    flex: 1,
   },
   imageContainer: {
     width: width,
-    height: 300,
-    backgroundColor: '#e5e7eb'
+    height: 200,
+    backgroundColor: '#e5e7eb',
+    marginHorizontal: 20,
+    marginTop: 10,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   productImage: {
     width: '100%',
-    height: '100%'
+    height: '100%',
   },
   placeholderImage: {
     width: '100%',
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#e5e7eb'
+    backgroundColor: '#e5e7eb',
   },
   placeholderIcon: {
-    fontSize: 72,
-    marginBottom: 8
+    fontSize: 48,
+    marginBottom: 8,
   },
   placeholderText: {
     fontSize: 16,
     color: '#9ca3af',
-    fontWeight: '500'
+    fontWeight: '500',
   },
-  contentContainer: {
+  productCard: {
+    backgroundColor: '#fff',
+    marginHorizontal: 20,
+    borderRadius: 16,
     padding: 20,
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    marginTop: -20
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 16
-  },
-  badgeContainer: {
-    marginBottom: 24
-  },
-  badge: {
-    backgroundColor: '#ede9fe',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignSelf: 'flex-start'
-  },
-  badgeLabel: {
-    fontSize: 12,
-    color: '#7c3aed',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    marginBottom: 4
-  },
-  badgeValue: {
-    fontSize: 16,
-    color: '#5b21b6',
-    fontWeight: 'bold'
-  },
-  section: {
-    marginBottom: 24
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1f2937',
-    marginBottom: 12
-  },
-  description: {
-    fontSize: 16,
-    color: '#4b5563',
-    lineHeight: 24
-  },
-  infoCard: {
-    backgroundColor: '#f9fafb',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#6366f1'
-  },
-  infoLabel: {
-    fontSize: 13,
-    color: '#6b7280',
-    fontWeight: '600',
-    marginBottom: 4,
-    textTransform: 'uppercase'
-  },
-  infoValue: {
-    fontSize: 16,
-    color: '#1f2937',
-    fontWeight: '500'
-  },
-  certButton: {
-    backgroundColor: '#6366f1',
+  productHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  productIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#f8f9fa',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 16,
-    borderRadius: 12,
-    marginTop: 12,
+    marginRight: 16,
+    borderWidth: 2,
+    borderColor: '#9C27B0',
+  },
+  productIcon: {
+    fontSize: 28,
+  },
+  productInfo: {
+    flex: 1,
+  },
+  productName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  productBatch: {
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'monospace',
+  },
+  descriptionContainer: {
     marginBottom: 20,
-    shadowColor: '#6366f1',
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  descriptionLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  descriptionText: {
+    fontSize: 16,
+    color: '#666',
+    lineHeight: 22,
+  },
+  detailsContainer: {
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  detailContent: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  detailLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 2,
+  },
+  detailValue: {
+    fontSize: 16,
+    color: '#333',
+  },
+  actionButtonsContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  primaryButton: {
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#9C27B0',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 6
+    elevation: 5,
   },
-  certButtonText: {
-    color: '#ffffff',
-    fontSize: 17,
-    fontWeight: '700',
-    marginRight: 8
+  primaryButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
   },
-  certButtonIcon: {
-    color: '#ffffff',
-    fontSize: 20,
-    fontWeight: 'bold'
-  }
+  primaryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  secondaryButton: {
+    borderRadius: 12,
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  secondaryButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+  },
+  secondaryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  infoCard: {
+    backgroundColor: '#fff',
+    marginHorizontal: 20,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#9C27B0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  infoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginLeft: 8,
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+  },
 });
