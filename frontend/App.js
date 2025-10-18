@@ -6,6 +6,9 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// Import Splash Screen
+import SplashScreen from './screens/SplashScreen';
+
 // Auth Screens
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
@@ -193,6 +196,7 @@ function ProducerTabs() {
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(null);
   const [userRole, setUserRole] = useState(null);
+  const [showSplash, setShowSplash] = useState(true);
 
   const checkAuthAndRole = async () => {
     try {
@@ -219,6 +223,10 @@ export default function App() {
     checkAuthAndRole();
   }, []);
 
+  const handleSplashFinish = () => {
+    setShowSplash(false);
+  };
+
   // Listen for app state changes to check auth when app becomes active
   useEffect(() => {
     const handleAppStateChange = (nextAppState) => {
@@ -240,6 +248,12 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // Show splash screen first
+  if (showSplash) {
+    return <SplashScreen onAnimationFinish={handleSplashFinish} />;
+  }
+
+  // Show loading while checking authentication
   if (isAuthenticated === null) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5' }}>
