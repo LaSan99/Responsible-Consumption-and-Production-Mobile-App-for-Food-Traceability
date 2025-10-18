@@ -17,7 +17,6 @@ import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import apiConfig from "../config/api";
-import { CommonActions } from "@react-navigation/native";
 
 const { width, height } = Dimensions.get("window");
 
@@ -53,12 +52,7 @@ export default function LoginScreen({ navigation }) {
         })
       );
 
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: "Home" }],
-        })
-      );
+      // App.js will automatically detect the authentication change and navigate to MainTabs
     } catch (error) {
       Alert.alert("Error", "Invalid credentials. Please try again.");
     } finally {

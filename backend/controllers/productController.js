@@ -1,12 +1,12 @@
 const Product = require('../models/productModel');
 
 exports.createProduct = (req, res) => {
-  const { name, batch_code, description } = req.body;
+  const { name, batch_code, description, category, origin, harvest_date, expiry_date } = req.body;
   if (!name || !batch_code) return res.status(400).json({ message: 'Name and batch code required' });
 
-  Product.create(name, batch_code, description, req.user.id, (err) => {
+  Product.create(name, batch_code, description, req.user.id, category, origin, harvest_date, expiry_date, (err) => {
     if (err) return res.status(500).json({ message: 'Error creating product', error: err });
-    res.json({ message: 'Product created' });
+    res.json({ message: 'Product created successfully' });
   });
 };
 
@@ -22,6 +22,13 @@ exports.getProductById = (req, res) => {
     if (err) return res.status(500).json({ message: 'Error fetching product' });
     if (results.length === 0) return res.status(404).json({ message: 'Product not found' });
     res.json(results[0]);
+  });
+};
+
+exports.getProductsByProducer = (req, res) => {
+  Product.getByProducer(req.user.id, (err, results) => {
+    if (err) return res.status(500).json({ message: 'Error fetching producer products' });
+    res.json(results);
   });
 };
 
