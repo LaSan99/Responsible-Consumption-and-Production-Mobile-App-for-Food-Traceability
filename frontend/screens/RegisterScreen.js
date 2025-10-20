@@ -11,10 +11,12 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import apiConfig from "../config/api";
 
 const { width, height } = Dimensions.get("window");
@@ -49,7 +51,7 @@ export default function RegisterScreen({ navigation }) {
 
     setIsLoading(true);
     try {
-      await axios.post(`${apiConfig.baseURL}/auth/register`, {
+      const response = await axios.post(`${apiConfig.baseURL}/auth/register`, {
         full_name: fullName,
         username,
         email,
@@ -57,22 +59,55 @@ export default function RegisterScreen({ navigation }) {
         phone,
       });
       
+      // Auto login after successful registration
+      const loginResponse = await axios.post(`${apiConfig.baseURL}/auth/login`, {
+        email,
+        password,
+      });
+
+      // Store token and user info
+      await AsyncStorage.setItem("token", loginResponse.data.token);
+      await AsyncStorage.setItem(
+        "user",
+        JSON.stringify({
+          full_name: fullName,
+          role: loginResponse.data.role,
+          email,
+        })
+      );
+
       Alert.alert(
-        "Success!",
-        "Registration successful. Welcome to FoodTrace!",
+        "Welcome to Farm2Fork!",
+        "Your account has been created successfully.",
         [
           {
-            text: "Continue to Login",
-            onPress: () => navigation.navigate("Login"),
+            text: "Get Started",
+            onPress: () => navigation.navigate("MainTabs"),
           },
         ]
       );
     } catch (error) {
+      console.error("Registration error:", error);
       const errorMessage = error.response?.data?.message || "Registration failed. Please try again.";
-      Alert.alert("Error", errorMessage);
+      
+      if (error.response?.status === 409) {
+        Alert.alert("Error", "An account with this email or username already exists.");
+      } else if (error.response?.status >= 500) {
+        Alert.alert("Error", "Server error. Please try again later.");
+      } else {
+        Alert.alert("Error", errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleQuickFill = () => {
+    setFullName("Demo User");
+    setUsername("demouser");
+    setEmail("demo@farm2fork.com");
+    setPassword("demo123");
+    setPhone("+1234567890");
   };
 
   const renderInput = (
@@ -95,8 +130,8 @@ export default function RegisterScreen({ navigation }) {
       >
         <Ionicons
           name={iconName}
-          size={20}
-          color={isFocused ? "#4CAF50" : "#666"}
+          size={22}
+          color={isFocused ? "#2E7D32" : "#666"}
           style={styles.inputIcon}
         />
         <TextInput
@@ -108,18 +143,20 @@ export default function RegisterScreen({ navigation }) {
           onFocus={() => setFocusedField(fieldName)}
           onBlur={() => setFocusedField("")}
           keyboardType={keyboardType}
-          autoCapitalize={fieldName === "email" ? "none" : "words"}
+          autoCapitalize={fieldName === "email" || fieldName === "username" ? "none" : "words"}
           autoCorrect={false}
           secureTextEntry={isPassword && !showPassword}
+          editable={!isLoading}
         />
         {isPassword && (
           <TouchableOpacity
             onPress={() => setShowPassword(!showPassword)}
             style={styles.passwordToggle}
+            disabled={isLoading}
           >
             <Ionicons
               name={showPassword ? "eye-off-outline" : "eye-outline"}
-              size={20}
+              size={22}
               color="#666"
             />
           </TouchableOpacity>
@@ -130,7 +167,7 @@ export default function RegisterScreen({ navigation }) {
 
   return (
     <LinearGradient
-      colors={["#4CAF50", "#8BC34A", "#CDDC39"]}
+      colors={["#2E7D32", "#4CAF50", "#81C784"]}
       style={styles.gradient}
     >
       <KeyboardAvoidingView
@@ -140,20 +177,26 @@ export default function RegisterScreen({ navigation }) {
         <ScrollView
           contentContainerStyle={styles.scrollContainer}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           {/* Header Section */}
           <View style={styles.header}>
             <TouchableOpacity
               style={styles.backButton}
               onPress={() => navigation.goBack()}
+              disabled={isLoading}
             >
               <Ionicons name="arrow-back" size={24} color="#fff" />
             </TouchableOpacity>
             
             <View style={styles.logoContainer}>
-              <Ionicons name="leaf" size={40} color="#fff" />
+              <Image 
+                source={{ uri: "https://i.postimg.cc/66Sb4wK0/image.png" }}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
             </View>
-            <Text style={styles.appName}>Join FoodTrace</Text>
+            <Text style={styles.appName}>Join Farm2Fork</Text>
             <Text style={styles.tagline}>
               Start your sustainable journey today
             </Text>
@@ -163,7 +206,7 @@ export default function RegisterScreen({ navigation }) {
           <View style={styles.formContainer}>
             <Text style={styles.welcomeText}>Create Account</Text>
             <Text style={styles.subtitleText}>
-              Join thousands making a difference in food sustainability
+              Join our community tracking food from farm to fork
             </Text>
 
             {/* Form Inputs */}
@@ -184,7 +227,7 @@ export default function RegisterScreen({ navigation }) {
             )}
 
             {renderInput(
-              "Email",
+              "Email Address",
               email,
               setEmail,
               "mail-outline",
@@ -213,10 +256,22 @@ export default function RegisterScreen({ navigation }) {
 
             {/* Password Requirements */}
             <View style={styles.passwordRequirements}>
-              <Text style={styles.requirementText}>
-                Password must be at least 6 characters long
+              <Text style={[
+                styles.requirementText,
+                password.length >= 6 && styles.requirementMet
+              ]}>
+                ✓ Password must be at least 6 characters long
               </Text>
             </View>
+
+            {/* Quick Fill Button */}
+            <TouchableOpacity
+              style={styles.quickFillButton}
+              onPress={handleQuickFill}
+              disabled={isLoading}
+            >
+              <Text style={styles.quickFillText}>Fill Demo Data</Text>
+            </TouchableOpacity>
 
             {/* Terms and Conditions */}
             <View style={styles.termsContainer}>
@@ -234,13 +289,18 @@ export default function RegisterScreen({ navigation }) {
               disabled={isLoading}
             >
               <LinearGradient
-                colors={["#4CAF50", "#45a049"]}
+                colors={["#2E7D32", "#4CAF50"]}
                 style={styles.registerButtonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
               >
                 {isLoading ? (
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
-                  <Text style={styles.registerButtonText}>Create Account</Text>
+                  <>
+                    <Ionicons name="person-add" size={20} color="#fff" style={styles.buttonIcon} />
+                    <Text style={styles.registerButtonText}>Create Account</Text>
+                  </>
                 )}
               </LinearGradient>
             </TouchableOpacity>
@@ -248,38 +308,86 @@ export default function RegisterScreen({ navigation }) {
             {/* Divider */}
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
+              <Text style={styles.dividerText}>Already a member?</Text>
               <View style={styles.dividerLine} />
             </View>
 
             {/* Login Section */}
             <View style={styles.loginSection}>
-              <Text style={styles.loginText}>Already have an account?</Text>
+              <Text style={styles.loginText}>Have an account?</Text>
               <TouchableOpacity
                 onPress={() => navigation.navigate("Login")}
                 style={styles.loginButton}
+                disabled={isLoading}
               >
                 <Text style={styles.loginButtonText}>Sign In</Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Footer */}
-          <View style={styles.footer}>
-            <View style={styles.benefitsContainer}>
-              <View style={styles.benefitItem}>
-                <Ionicons name="shield-checkmark" size={16} color="rgba(255, 255, 255, 0.8)" />
-                <Text style={styles.benefitText}>Secure & Private</Text>
+          {/* Features Banner */}
+          <View style={styles.featuresBanner}>
+            <View style={styles.featureItem}>
+              <Ionicons name="shield-checkmark" size={16} color="#fff" />
+              <Text style={styles.featureText}>Secure</Text>
+            </View>
+            <View style={styles.featureItem}>
+              <Ionicons name="trending-up" size={16} color="#fff" />
+              <Text style={styles.featureText}>Traceable</Text>
+            </View>
+            <View style={styles.featureItem}>
+              <Ionicons name="earth" size={16} color="#fff" />
+              <Text style={styles.featureText}>Sustainable</Text>
+            </View>
+            <View style={styles.featureItem}>
+              <Ionicons name="people" size={16} color="#fff" />
+              <Text style={styles.featureText}>Community</Text>
+            </View>
+          </View>
+
+          {/* Additional Benefits */}
+          <View style={styles.benefitsContainer}>
+            <Text style={styles.benefitsTitle}>Why Join Farm2Fork?</Text>
+            <View style={styles.benefitsGrid}>
+              <View style={styles.benefitCard}>
+                <Ionicons name="analytics" size={24} color="#2E7D32" />
+                <Text style={styles.benefitTitle}>Track Impact</Text>
+                <Text style={styles.benefitDescription}>
+                  Monitor your sustainable food choices and their environmental impact
+                </Text>
               </View>
-              <View style={styles.benefitItem}>
-                <Ionicons name="earth" size={16} color="rgba(255, 255, 255, 0.8)" />
-                <Text style={styles.benefitText}>Eco-Friendly</Text>
+              <View style={styles.benefitCard}>
+                <Ionicons name="storefront" size={24} color="#2E7D32" />
+                <Text style={styles.benefitTitle}>Local Farms</Text>
+                <Text style={styles.benefitDescription}>
+                  Connect with local farmers and sustainable food producers
+                </Text>
               </View>
-              <View style={styles.benefitItem}>
-                <Ionicons name="people" size={16} color="rgba(255, 255, 255, 0.8)" />
-                <Text style={styles.benefitText}>Community Driven</Text>
+              <View style={styles.benefitCard}>
+                <Ionicons name="ribbon" size={24} color="#2E7D32" />
+                <Text style={styles.benefitTitle}>Certifications</Text>
+                <Text style={styles.benefitDescription}>
+                  Access verified organic and sustainable product certifications
+                </Text>
+              </View>
+              <View style={styles.benefitCard}>
+                <Ionicons name="trending-up" size={24} color="#2E7D32" />
+                <Text style={styles.benefitTitle}>Growth</Text>
+                <Text style={styles.benefitDescription}>
+                  Be part of a growing community dedicated to food sustainability
+                </Text>
               </View>
             </View>
+          </View>
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              Track your food's journey with complete transparency
+            </Text>
+            <Text style={styles.copyrightText}>
+              © 2024 Farm2Fork. All rights reserved.
+            </Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -296,64 +404,75 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flexGrow: 1,
-    paddingHorizontal: 30,
-    paddingVertical: 40,
+    paddingHorizontal: 25,
+    paddingVertical: 20,
   },
   header: {
     alignItems: "center",
-    marginBottom: 30,
+    marginBottom: 25,
     position: "relative",
   },
   backButton: {
     position: "absolute",
     left: -10,
-    top: 10,
+    top: 0,
     width: 40,
     height: 40,
     borderRadius: 20,
     backgroundColor: "rgba(255, 255, 255, 0.2)",
     justifyContent: "center",
     alignItems: "center",
+    zIndex: 1,
   },
   logoContainer: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 15,
-    marginTop: 20,
+    marginTop: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  logoImage: {
+    width: 60,
+    height: 60,
   },
   appName: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "bold",
     color: "#fff",
-    marginBottom: 5,
+    marginBottom: 6,
+    textShadowColor: "rgba(0, 0, 0, 0.2)",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
   tagline: {
-    fontSize: 14,
-    color: "rgba(255, 255, 255, 0.8)",
+    fontSize: 16,
+    color: "rgba(255, 255, 255, 0.9)",
     textAlign: "center",
+    fontWeight: "500",
   },
   formContainer: {
     backgroundColor: "#fff",
     borderRadius: 25,
-    padding: 30,
+    padding: 25,
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 25,
+    elevation: 12,
     marginBottom: 20,
   },
   welcomeText: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "bold",
-    color: "#333",
+    color: "#2E7D32",
     textAlign: "center",
     marginBottom: 8,
   },
@@ -362,29 +481,38 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
     marginBottom: 25,
+    lineHeight: 18,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#f8f8f8",
-    borderRadius: 12,
-    paddingHorizontal: 15,
+    borderRadius: 15,
+    paddingHorizontal: 18,
     marginBottom: 15,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderWidth: 2,
+    borderColor: "#e8e8e8",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
   inputContainerFocused: {
-    borderColor: "#4CAF50",
+    borderColor: "#2E7D32",
     backgroundColor: "#f0f8f0",
+    shadowColor: "#2E7D32",
+    shadowOpacity: 0.1,
   },
   inputIcon: {
-    marginRight: 10,
+    marginRight: 12,
   },
   input: {
     flex: 1,
     height: 50,
     fontSize: 16,
     color: "#333",
+    fontWeight: "500",
   },
   passwordToggle: {
     padding: 5,
@@ -397,43 +525,59 @@ const styles = StyleSheet.create({
     color: "#666",
     marginLeft: 5,
   },
+  requirementMet: {
+    color: "#2E7D32",
+    fontWeight: "600",
+  },
+  quickFillButton: {
+    paddingVertical: 10,
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  quickFillText: {
+    color: "#666",
+    fontSize: 13,
+    fontWeight: "500",
+    textDecorationLine: "underline",
+  },
   termsContainer: {
-    marginBottom: 25,
+    marginBottom: 20,
   },
   termsText: {
     fontSize: 12,
     color: "#666",
     textAlign: "center",
-    lineHeight: 18,
+    lineHeight: 16,
   },
   termsLink: {
-    color: "#4CAF50",
-    fontWeight: "500",
+    color: "#2E7D32",
+    fontWeight: "600",
   },
   registerButton: {
-    borderRadius: 12,
-    marginBottom: 25,
-    shadowColor: "#4CAF50",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    borderRadius: 15,
+    marginBottom: 20,
+    shadowColor: "#2E7D32",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
   registerButtonDisabled: {
     opacity: 0.7,
   },
   registerButtonGradient: {
-    paddingVertical: 15,
-    borderRadius: 12,
+    paddingVertical: 16,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
+    flexDirection: "row",
+  },
+  buttonIcon: {
+    marginRight: 8,
   },
   registerButtonText: {
     color: "#fff",
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "bold",
   },
   divider: {
@@ -444,47 +588,105 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "#e0e0e0",
+    backgroundColor: "#e8e8e8",
   },
   dividerText: {
-    marginHorizontal: 15,
+    marginHorizontal: 12,
     color: "#999",
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: "500",
   },
   loginSection: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
+    flexWrap: "wrap",
   },
   loginText: {
     color: "#666",
-    fontSize: 14,
+    fontSize: 15,
+    marginRight: 5,
   },
   loginButton: {
-    marginLeft: 5,
+    padding: 5,
   },
   loginButtonText: {
-    color: "#4CAF50",
+    color: "#2E7D32",
+    fontSize: 15,
+    fontWeight: "bold",
+  },
+  featuresBanner: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    borderRadius: 15,
+    padding: 15,
+    marginBottom: 20,
+  },
+  featureItem: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  featureText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "500",
+    marginLeft: 4,
+  },
+  benefitsContainer: {
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+  },
+  benefitsTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#fff",
+    textAlign: "center",
+    marginBottom: 15,
+  },
+  benefitsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  benefitCard: {
+    width: '48%',
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    borderRadius: 15,
+    padding: 15,
+    marginBottom: 10,
+    alignItems: "center",
+  },
+  benefitTitle: {
     fontSize: 14,
     fontWeight: "bold",
+    color: "#2E7D32",
+    textAlign: "center",
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  benefitDescription: {
+    fontSize: 10,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 12,
   },
   footer: {
     alignItems: "center",
+    marginBottom: 10,
   },
-  benefitsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    width: "100%",
-    marginTop: 10,
+  footerText: {
+    color: "rgba(255, 255, 255, 0.85)",
+    fontSize: 14,
+    textAlign: "center",
+    fontWeight: "500",
+    marginBottom: 5,
   },
-  benefitItem: {
-    alignItems: "center",
-    flex: 1,
-  },
-  benefitText: {
-    color: "rgba(255, 255, 255, 0.8)",
-    fontSize: 11,
-    marginTop: 4,
+  copyrightText: {
+    color: "rgba(255, 255, 255, 0.6)",
+    fontSize: 10,
     textAlign: "center",
   },
 });

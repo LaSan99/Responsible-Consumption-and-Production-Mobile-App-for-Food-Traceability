@@ -20,39 +20,39 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
 
-export default function ProfileScreen({ navigation }) {
+const ProfileScreen = ({ navigation }) => {
   const [user, setUser] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [activeSection, setActiveSection] = useState('profile');
+  const [activeTab, setActiveTab] = useState('profile');
 
   const fadeAnim = useState(new Animated.Value(0))[0];
-  const slideAnim = useState(new Animated.Value(50))[0];
+  const headerScroll = useState(new Animated.Value(0))[0];
 
   useEffect(() => {
     loadUserData();
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
   }, []);
 
+  const headerOpacity = headerScroll.interpolate({
+    inputRange: [0, 100],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
   const [profileData, setProfileData] = useState({
-    full_name: '',
-    email: '',
-    phone: '',
-    address: '',
-    company: '',
-    role: '',
+    full_name: 'Alexandra Chen',
+    email: 'alexandra.chen@company.com',
+    phone: '+1 (555) 123-4567',
+    address: '123 Business Ave, Suite 400',
+    company: 'TechCorp Inc.',
+    role: 'Senior Product Manager',
+    department: 'Product & Design',
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -62,365 +62,329 @@ export default function ProfileScreen({ navigation }) {
   });
 
   const [preferences, setPreferences] = useState({
-    notifications: true,
-    emailUpdates: false,
-    locationTracking: true,
-    analytics: true,
+    biometricLogin: true,
+    twoFactorAuth: true,
+    emailNotifications: true,
+    pushNotifications: false,
     darkMode: false,
+    autoSync: true,
   });
 
   const [stats, setStats] = useState({
-    productsScanned: 145,
-    sustainabilityScore: 85,
-    carbonFootprint: '2.3 kg CO2',
-    localPurchases: 67,
+    projectsCompleted: 24,
+    teamMembers: 8,
+    satisfactionRate: 96,
+    tasksCompleted: 187,
   });
 
   const loadUserData = async () => {
     try {
-      const userData = await AsyncStorage.getItem('user');
-      if (userData) {
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
-        setProfileData({
-          full_name: parsedUser.full_name || '',
-          email: parsedUser.email || '',
-          phone: parsedUser.phone || '',
-          address: parsedUser.address || '',
-          company: parsedUser.company || '',
-          role: parsedUser.role || '',
-        });
-      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setUser(profileData);
     } catch (error) {
       console.error('Error loading user data:', error);
     }
   };
 
-  const handleInputChange = (field, value) => {
-    setProfileData(prev => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const handlePasswordChange = (field, value) => {
-    setPasswordData(prev => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const handlePreferenceChange = (preference, value) => {
-    setPreferences(prev => ({
-      ...prev,
-      [preference]: value,
-    }));
-  };
-
-  const validateProfile = () => {
-    if (!profileData.full_name.trim()) {
-      Alert.alert('Error', 'Full name is required');
-      return false;
-    }
-    
-    if (!profileData.email.trim()) {
-      Alert.alert('Error', 'Email is required');
-      return false;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(profileData.email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
-      return false;
-    }
-
-    return true;
-  };
-
-  const validatePassword = () => {
-    if (!passwordData.currentPassword) {
-      Alert.alert('Error', 'Current password is required');
-      return false;
-    }
-    
-    if (passwordData.newPassword.length < 6) {
-      Alert.alert('Error', 'New password must be at least 6 characters');
-      return false;
-    }
-    
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      Alert.alert('Error', 'New passwords do not match');
-      return false;
-    }
-
-    return true;
-  };
-
   const handleSaveProfile = async () => {
-    if (!validateProfile()) return;
-
     setIsLoading(true);
-    
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const updatedUser = { ...user, ...profileData };
-      await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
-      setUser(updatedUser);
+      await new Promise(resolve => setTimeout(resolve, 1500));
       setIsEditing(false);
-      
-      Alert.alert('Success', 'Profile updated successfully!');
+      Alert.alert('Success', 'Profile updated successfully');
     } catch (error) {
-      Alert.alert('Error', 'Failed to update profile. Please try again.');
+      Alert.alert('Error', 'Failed to update profile');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleChangePassword = async () => {
-    if (!validatePassword()) return;
-
     setIsLoading(true);
-    
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setPasswordData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: '',
-      });
+      await new Promise(resolve => setTimeout(resolve, 1500));
       setShowPasswordModal(false);
-      
-      Alert.alert('Success', 'Password changed successfully!');
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      Alert.alert('Success', 'Password changed successfully');
     } catch (error) {
-      Alert.alert('Error', 'Failed to change password. Please try again.');
+      Alert.alert('Error', 'Failed to change password');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            await AsyncStorage.multiRemove(['token', 'user']);
-          },
-        },
-      ]
-    );
+  const handleScroll = (event) => {
+    const scrollY = event.nativeEvent.contentOffset.y;
+    headerScroll.setValue(scrollY);
   };
 
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account',
-      'This action cannot be undone. Are you sure you want to delete your account?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert('Account Deletion', 'Account deletion request submitted.');
-          },
-        },
-      ]
-    );
-  };
-
-  const SectionButton = ({ title, icon, isActive, onPress }) => (
-    <TouchableOpacity
-      style={[styles.sectionButton, isActive && styles.sectionButtonActive]}
-      onPress={onPress}
-    >
-      <Text style={[styles.sectionButtonIcon, isActive && styles.sectionButtonIconActive]}>
-        {icon}
-      </Text>
-      <Text style={[styles.sectionButtonText, isActive && styles.sectionButtonTextActive]}>
-        {title}
-      </Text>
-    </TouchableOpacity>
-  );
-
-  const StatCard = ({ icon, value, label, color }) => (
-    <View style={[styles.statCard, { borderLeftColor: color }]}>
-      <Text style={styles.statIcon}>{icon}</Text>
-      <Text style={styles.statNumber}>{value}</Text>
+  const ProfessionalStatCard = ({ icon, value, label, trend }) => (
+    <View style={styles.statCard}>
+      <View style={styles.statHeader}>
+        <View style={styles.statIconContainer}>
+          <Text style={styles.statIcon}>{icon}</Text>
+        </View>
+        {trend && (
+          <View style={[styles.trendIndicator, { backgroundColor: trend > 0 ? '#10B981' : '#EF4444' }]}>
+            <Text style={styles.trendText}>
+              {trend > 0 ? '↗' : '↘'} {Math.abs(trend)}%
+            </Text>
+          </View>
+        )}
+      </View>
+      <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
 
-  const MenuItem = ({ icon, title, onPress, isLast }) => (
+  const SettingItem = ({ icon, title, description, value, onValueChange, type = 'switch' }) => (
+    <View style={styles.settingItem}>
+      <View style={styles.settingLeft}>
+        <View style={styles.settingIconContainer}>
+          <Text style={styles.settingIcon}>{icon}</Text>
+        </View>
+        <View style={styles.settingTextContainer}>
+          <Text style={styles.settingTitle}>{title}</Text>
+          <Text style={styles.settingDescription}>{description}</Text>
+        </View>
+      </View>
+      {type === 'switch' ? (
+        <Switch
+          value={value}
+          onValueChange={onValueChange}
+          trackColor={{ false: '#E5E7EB', true: '#3B82F6' }}
+          thumbColor="#FFFFFF"
+        />
+      ) : (
+        <TouchableOpacity style={styles.arrowButton}>
+          <Text style={styles.arrowIcon}>›</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  const TabButton = ({ title, isActive, onPress }) => (
     <TouchableOpacity
-      style={[styles.menuItem, isLast && styles.menuItemLast]}
+      style={[styles.tabButton, isActive && styles.tabButtonActive]}
       onPress={onPress}
     >
-      <View style={styles.menuLeft}>
-        <View style={styles.menuIconContainer}>
-          <Text style={styles.menuIcon}>{icon}</Text>
-        </View>
-        <Text style={styles.menuTitle}>{title}</Text>
-      </View>
-      <View style={styles.menuArrowContainer}>
-        <Text style={styles.menuArrow}>›</Text>
-      </View>
+      <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
+        {title}
+      </Text>
+      {isActive && <View style={styles.tabIndicator} />}
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#6366f1" />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#1F2937" />
       
-      {/* Enhanced Header with Gradient */}
-      <LinearGradient
-        colors={['#6366f1', '#8b5cf6']}
-        style={styles.header}
-      >
+      {/* Header */}
+      <Animated.View style={[styles.header, { opacity: headerOpacity }]}>
+        <LinearGradient
+          colors={['#1F2937', '#374151']}
+          style={StyleSheet.absoluteFill}
+        />
         <View style={styles.headerContent}>
           <TouchableOpacity 
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.backIcon}>‹</Text>
+            <Text style={styles.backIcon}>←</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Profile</Text>
           <TouchableOpacity 
             style={styles.editButton}
             onPress={() => setIsEditing(!isEditing)}
           >
-            <Text style={styles.editIcon}>{isEditing ? '✕' : '✏️'}</Text>
+            <Text style={styles.editIcon}>{isEditing ? 'Cancel' : 'Edit'}</Text>
           </TouchableOpacity>
         </View>
-      </LinearGradient>
+      </Animated.View>
 
       <ScrollView 
-        style={styles.scrollView} 
+        style={styles.scrollView}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        scrollEventThrottle={16}
+        onScroll={handleScroll}
       >
-        {/* Profile Header with Enhanced Design */}
-        <Animated.View 
-          style={[
-            styles.profileHeader,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }]
-            }
-          ]}
+        {/* Profile Hero Section */}
+        <LinearGradient
+          colors={['#1F2937', '#374151']}
+          style={styles.heroSection}
         >
-          <LinearGradient
-            colors={['#818cf8', '#6366f1']}
-            style={styles.avatarContainer}
-          >
-            <Text style={styles.avatarText}>
-              {user?.full_name ? user.full_name.charAt(0).toUpperCase() : 'U'}
-            </Text>
-          </LinearGradient>
-          <Text style={styles.userName}>{user?.full_name || 'User Name'}</Text>
-          <Text style={styles.userRole}>{user?.role || 'Member'}</Text>
-          <View style={styles.verifiedBadge}>
-            <Text style={styles.verifiedText}>✓ Verified</Text>
-          </View>
-        </Animated.View>
-
-        {/* Quick Stats Section */}
-        <View style={styles.statsSection}>
-          <Text style={styles.sectionTitle}>Your Impact</Text>
-          <View style={styles.statsGrid}>
-            <StatCard 
-              icon="📱" 
-              value={stats.productsScanned} 
-              label="Products Scanned" 
-              color="#10b981"
-            />
-            <StatCard 
-              icon="🌱" 
-              value={`${stats.sustainabilityScore}%`} 
-              label="Sustainability" 
-              color="#f59e0b"
-            />
-            <StatCard 
-              icon="🌍" 
-              value={stats.carbonFootprint} 
-              label="Carbon Footprint" 
-              color="#ef4444"
-            />
-            <StatCard 
-              icon="🏪" 
-              value={`${stats.localPurchases}%`} 
-              label="Local Purchases" 
-              color="#8b5cf6"
-            />
-          </View>
-        </View>
-
-        {/* Navigation Tabs */}
-        <View style={styles.sectionTabs}>
-          <SectionButton 
-            title="Profile" 
-            icon="👤" 
-            isActive={activeSection === 'profile'}
-            onPress={() => setActiveSection('profile')}
-          />
-          <SectionButton 
-            title="Preferences" 
-            icon="⚙️" 
-            isActive={activeSection === 'preferences'}
-            onPress={() => setActiveSection('preferences')}
-          />
-          <SectionButton 
-            title="Security" 
-            icon="🔒" 
-            isActive={activeSection === 'security'}
-            onPress={() => setActiveSection('security')}
-          />
-        </View>
-
-        {/* Profile Information */}
-        {activeSection === 'profile' && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Personal Information</Text>
-              <View style={styles.editIndicator}>
-                <Text style={styles.editIndicatorText}>
-                  {isEditing ? 'Editing...' : 'Read Only'}
-                </Text>
+          <View style={styles.heroContent}>
+            <View style={styles.avatarSection}>
+              <View style={styles.avatarContainer}>
+                <LinearGradient
+                  colors={['#6366F1', '#8B5CF6']}
+                  style={styles.avatarGradient}
+                >
+                  <Text style={styles.avatarText}>
+                    {user?.full_name?.charAt(0) || 'A'}
+                  </Text>
+                </LinearGradient>
+                <View style={styles.statusIndicator} />
+              </View>
+              <View style={styles.verifiedBadge}>
+                <Text style={styles.verifiedIcon}>✓</Text>
+                <Text style={styles.verifiedText}>Verified</Text>
               </View>
             </View>
             
-            <View style={styles.formContainer}>
-              {[
-                { label: 'Full Name', field: 'full_name', icon: '👤' },
-                { label: 'Email Address', field: 'email', icon: '📧', keyboardType: 'email-address' },
-                { label: 'Phone Number', field: 'phone', icon: '📱', keyboardType: 'phone-pad' },
-                { label: 'Address', field: 'address', icon: '🏠' },
-                { label: 'Company', field: 'company', icon: '💼' },
-              ].map((item, index) => (
-                <View key={item.field} style={styles.inputWrapper}>
-                  <View style={styles.inputLabelContainer}>
-                    <Text style={styles.inputIcon}>{item.icon}</Text>
-                    <Text style={styles.inputLabel}>{item.label}</Text>
+            <View style={styles.profileInfo}>
+              <Text style={styles.userName}>{user?.full_name || 'Alexandra Chen'}</Text>
+              <Text style={styles.userRole}>{user?.role || 'Senior Product Manager'}</Text>
+              <Text style={styles.userCompany}>{user?.company || 'TechCorp Inc.'}</Text>
+              
+              <View style={styles.statsRow}>
+                <View style={styles.statMini}>
+                  <Text style={styles.statMiniValue}>{stats.projectsCompleted}</Text>
+                  <Text style={styles.statMiniLabel}>Projects</Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statMini}>
+                  <Text style={styles.statMiniValue}>{stats.teamMembers}</Text>
+                  <Text style={styles.statMiniLabel}>Team</Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statMini}>
+                  <Text style={styles.statMiniValue}>{stats.satisfactionRate}%</Text>
+                  <Text style={styles.statMiniLabel}>Satisfaction</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </LinearGradient>
+
+        {/* Stats Overview */}
+        <View style={styles.statsSection}>
+          <Text style={styles.sectionTitle}>Performance Overview</Text>
+          <View style={styles.statsGrid}>
+            <ProfessionalStatCard 
+              icon="📊" 
+              value={stats.projectsCompleted} 
+              label="Projects Completed"
+              trend={12}
+            />
+            <ProfessionalStatCard 
+              icon="👥" 
+              value={stats.teamMembers} 
+              label="Team Members"
+              trend={5}
+            />
+            <ProfessionalStatCard 
+              icon="⭐" 
+              value={`${stats.satisfactionRate}%`} 
+              label="Satisfaction Rate"
+              trend={3}
+            />
+            <ProfessionalStatCard 
+              icon="✅" 
+              value={stats.tasksCompleted} 
+              label="Tasks Completed"
+              trend={8}
+            />
+          </View>
+        </View>
+
+        {/* Tab Navigation */}
+        <View style={styles.tabContainer}>
+          <TabButton 
+            title="Profile" 
+            isActive={activeTab === 'profile'} 
+            onPress={() => setActiveTab('profile')} 
+          />
+          <TabButton 
+            title="Settings" 
+            isActive={activeTab === 'settings'} 
+            onPress={() => setActiveTab('settings')} 
+          />
+          <TabButton 
+            title="Security" 
+            isActive={activeTab === 'security'} 
+            onPress={() => setActiveTab('security')} 
+          />
+        </View>
+
+        {/* Profile Tab Content */}
+        {activeTab === 'profile' && (
+          <Animated.View style={[styles.tabContent, { opacity: fadeAnim }]}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Personal Information</Text>
+              <View style={styles.formContainer}>
+                <View style={styles.inputGroup}>
+                  <View style={styles.inputLabelRow}>
+                    <Text style={styles.inputIcon}>👤</Text>
+                    <Text style={styles.inputLabel}>Full Name</Text>
                   </View>
                   <TextInput
-                    style={[
-                      styles.textInput,
-                      !isEditing && styles.textInputReadonly
-                    ]}
-                    value={profileData[item.field]}
-                    onChangeText={(value) => handleInputChange(item.field, value)}
+                    style={[styles.textInput, !isEditing && styles.textInputReadonly]}
+                    value={profileData.full_name}
+                    onChangeText={(value) => setProfileData(prev => ({ ...prev, full_name: value }))}
                     editable={isEditing}
-                    placeholder={`Enter your ${item.label.toLowerCase()}`}
-                    placeholderTextColor="#9ca3af"
-                    keyboardType={item.keyboardType}
+                    placeholderTextColor="#9CA3AF"
                   />
                 </View>
-              ))}
+
+                <View style={styles.inputGroup}>
+                  <View style={styles.inputLabelRow}>
+                    <Text style={styles.inputIcon}>📧</Text>
+                    <Text style={styles.inputLabel}>Email Address</Text>
+                  </View>
+                  <TextInput
+                    style={[styles.textInput, !isEditing && styles.textInputReadonly]}
+                    value={profileData.email}
+                    onChangeText={(value) => setProfileData(prev => ({ ...prev, email: value }))}
+                    editable={isEditing}
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="email-address"
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <View style={styles.inputLabelRow}>
+                    <Text style={styles.inputIcon}>📱</Text>
+                    <Text style={styles.inputLabel}>Phone Number</Text>
+                  </View>
+                  <TextInput
+                    style={[styles.textInput, !isEditing && styles.textInputReadonly]}
+                    value={profileData.phone}
+                    onChangeText={(value) => setProfileData(prev => ({ ...prev, phone: value }))}
+                    editable={isEditing}
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="phone-pad"
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <View style={styles.inputLabelRow}>
+                    <Text style={styles.inputIcon}>🏢</Text>
+                    <Text style={styles.inputLabel}>Department</Text>
+                  </View>
+                  <TextInput
+                    style={[styles.textInput, !isEditing && styles.textInputReadonly]}
+                    value={profileData.department}
+                    onChangeText={(value) => setProfileData(prev => ({ ...prev, department: value }))}
+                    editable={isEditing}
+                    placeholderTextColor="#9CA3AF"
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <View style={styles.inputLabelRow}>
+                    <Text style={styles.inputIcon}>📍</Text>
+                    <Text style={styles.inputLabel}>Address</Text>
+                  </View>
+                  <TextInput
+                    style={[styles.textInput, !isEditing && styles.textInputReadonly]}
+                    value={profileData.address}
+                    onChangeText={(value) => setProfileData(prev => ({ ...prev, address: value }))}
+                    editable={isEditing}
+                    placeholderTextColor="#9CA3AF"
+                  />
+                </View>
+              </View>
 
               {isEditing && (
                 <TouchableOpacity
@@ -429,216 +393,251 @@ export default function ProfileScreen({ navigation }) {
                   disabled={isLoading}
                 >
                   <LinearGradient
-                    colors={['#10b981', '#059669']}
+                    colors={['#3B82F6', '#1D4ED8']}
                     style={styles.saveButtonGradient}
                   >
                     <Text style={styles.saveButtonText}>
-                      {isLoading ? '🔄 Saving...' : '💾 Save Changes'}
+                      {isLoading ? 'Saving Changes...' : 'Save Changes'}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>
               )}
             </View>
-          </View>
+          </Animated.View>
         )}
 
-        {/* Preferences Section */}
-        {activeSection === 'preferences' && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>App Preferences</Text>
-            <View style={styles.preferencesContainer}>
-              {[
-                { key: 'notifications', label: 'Push Notifications', icon: '🔔' },
-                { key: 'emailUpdates', label: 'Email Updates', icon: '📧' },
-                { key: 'locationTracking', label: 'Location Tracking', icon: '📍' },
-                { key: 'analytics', label: 'Usage Analytics', icon: '📊' },
-                { key: 'darkMode', label: 'Dark Mode', icon: '🌙' },
-              ].map((pref, index) => (
-                <View key={pref.key} style={[
-                  styles.preferenceItem,
-                  index === 4 && styles.preferenceItemLast
-                ]}>
-                  <View style={styles.preferenceLeft}>
-                    <Text style={styles.preferenceIcon}>{pref.icon}</Text>
+        {/* Settings Tab Content */}
+        {activeTab === 'settings' && (
+          <Animated.View style={[styles.tabContent, { opacity: fadeAnim }]}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Preferences</Text>
+              <View style={styles.settingsContainer}>
+                <SettingItem
+                  icon="🔒"
+                  title="Biometric Login"
+                  description="Use Face ID or Touch ID for faster access"
+                  value={preferences.biometricLogin}
+                  onValueChange={(value) => setPreferences(prev => ({ ...prev, biometricLogin: value }))}
+                />
+                <SettingItem
+                  icon="🛡️"
+                  title="Two-Factor Authentication"
+                  description="Extra security for your account"
+                  value={preferences.twoFactorAuth}
+                  onValueChange={(value) => setPreferences(prev => ({ ...prev, twoFactorAuth: value }))}
+                />
+                <SettingItem
+                  icon="📧"
+                  title="Email Notifications"
+                  description="Receive important updates via email"
+                  value={preferences.emailNotifications}
+                  onValueChange={(value) => setPreferences(prev => ({ ...prev, emailNotifications: value }))}
+                />
+                <SettingItem
+                  icon="🔔"
+                  title="Push Notifications"
+                  description="Get instant notifications on your device"
+                  value={preferences.pushNotifications}
+                  onValueChange={(value) => setPreferences(prev => ({ ...prev, pushNotifications: value }))}
+                />
+                <SettingItem
+                  icon="🌙"
+                  title="Dark Mode"
+                  description="Switch to dark theme"
+                  value={preferences.darkMode}
+                  onValueChange={(value) => setPreferences(prev => ({ ...prev, darkMode: value }))}
+                />
+                <SettingItem
+                  icon="🔄"
+                  title="Auto Sync"
+                  description="Automatically sync your data"
+                  value={preferences.autoSync}
+                  onValueChange={(value) => setPreferences(prev => ({ ...prev, autoSync: value }))}
+                />
+              </View>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Security Tab Content */}
+        {activeTab === 'security' && (
+          <Animated.View style={[styles.tabContent, { opacity: fadeAnim }]}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Security & Privacy</Text>
+              <View style={styles.securityContainer}>
+                <TouchableOpacity 
+                  style={styles.securityItem}
+                  onPress={() => setShowPasswordModal(true)}
+                >
+                  <View style={styles.securityLeft}>
+                    <View style={styles.securityIconContainer}>
+                      <Text style={styles.securityIcon}>🔑</Text>
+                    </View>
                     <View>
-                      <Text style={styles.preferenceTitle}>{pref.label}</Text>
-                      <Text style={styles.preferenceDescription}>
-                        {pref.key === 'notifications' ? 'Receive push notifications' :
-                         pref.key === 'emailUpdates' ? 'Get email updates and news' :
-                         pref.key === 'locationTracking' ? 'Allow location access' :
-                         pref.key === 'analytics' ? 'Help improve the app' : 'Enable dark theme'}
-                      </Text>
+                      <Text style={styles.securityTitle}>Change Password</Text>
+                      <Text style={styles.securityDescription}>Update your password regularly</Text>
                     </View>
                   </View>
-                  <Switch
-                    value={preferences[pref.key]}
-                    onValueChange={(value) => handlePreferenceChange(pref.key, value)}
-                    trackColor={{ false: '#e2e8f0', true: '#10b981' }}
-                    thumbColor="#ffffff"
-                  />
-                </View>
-              ))}
+                  <Text style={styles.arrowIcon}>›</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.securityItem}>
+                  <View style={styles.securityLeft}>
+                    <View style={styles.securityIconContainer}>
+                      <Text style={styles.securityIcon}>👁️</Text>
+                    </View>
+                    <View>
+                      <Text style={styles.securityTitle}>Privacy Settings</Text>
+                      <Text style={styles.securityDescription}>Manage your data privacy</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.arrowIcon}>›</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.securityItem}>
+                  <View style={styles.securityLeft}>
+                    <View style={styles.securityIconContainer}>
+                      <Text style={styles.securityIcon}>📱</Text>
+                    </View>
+                    <View>
+                      <Text style={styles.securityTitle}>Device Management</Text>
+                      <Text style={styles.securityDescription}>Manage connected devices</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.arrowIcon}>›</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        )}
 
-        {/* Security Section */}
-        {activeSection === 'security' && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Security & Privacy</Text>
-            <View style={styles.menuContainer}>
-              <MenuItem 
-                icon="🔒" 
-                title="Change Password" 
-                onPress={() => setShowPasswordModal(true)}
-              />
-              <MenuItem 
-                icon="👁️" 
-                title="Privacy Settings" 
-                onPress={() => Alert.alert('Privacy', 'Privacy settings')}
-              />
-              <MenuItem 
-                icon="📱" 
-                title="Two-Factor Authentication" 
-                onPress={() => Alert.alert('2FA', 'Two-factor authentication')}
-              />
-              <MenuItem 
-                icon="🔍" 
-                title="Data & Permissions" 
-                onPress={() => Alert.alert('Data', 'Data permissions')}
-                isLast
-              />
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Account Actions</Text>
+              <View style={styles.actionsContainer}>
+                <TouchableOpacity style={styles.actionButton}>
+                  <Text style={styles.actionIcon}>📥</Text>
+                  <Text style={styles.actionText}>Export Data</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.logoutButton]}
+                  onPress={() => Alert.alert(
+                    'Logout', 
+                    'Are you sure you want to logout?',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { 
+                        text: 'Logout', 
+                        style: 'destructive',
+                        onPress: () => console.log('Logout pressed')
+                      }
+                    ]
+                  )}
+                >
+                  <Text style={styles.actionIcon}>🚪</Text>
+                  <Text style={[styles.actionText, styles.logoutText]}>Logout</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          </Animated.View>
         )}
-
-        {/* Additional Menu */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>More</Text>
-          <View style={styles.menuContainer}>
-            <MenuItem 
-              icon="📋" 
-              title="Privacy Policy" 
-              onPress={() => Alert.alert('Privacy Policy', 'Opening...')}
-            />
-            <MenuItem 
-              icon="📄" 
-              title="Terms of Service" 
-              onPress={() => Alert.alert('Terms', 'Opening...')}
-            />
-            <MenuItem 
-              icon="❓" 
-              title="Help & Support" 
-              onPress={() => navigation.navigate?.('Contact')}
-            />
-            <MenuItem 
-              icon="⭐" 
-              title="Rate Our App" 
-              onPress={() => Alert.alert('Rating', 'Opening app store...')}
-              isLast
-            />
-          </View>
-        </View>
-
-        {/* Danger Zone */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account Actions</Text>
-          <View style={styles.dangerContainer}>
-            <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={handleLogout}
-            >
-              <Text style={styles.logoutIcon}>🚪</Text>
-              <Text style={styles.logoutText}>Logout</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={styles.deleteButton}
-              onPress={handleDeleteAccount}
-            >
-              <Text style={styles.deleteIcon}>🗑️</Text>
-              <Text style={styles.deleteText}>Delete Account</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
 
-      {/* Enhanced Password Modal */}
+      {/* Password Change Modal */}
       <Modal
         visible={showPasswordModal}
         animationType="slide"
-        presentationStyle="pageSheet"
+        transparent={true}
         onRequestClose={() => setShowPasswordModal(false)}
       >
-        <SafeAreaView style={styles.modalContainer}>
-          <LinearGradient
-            colors={['#6366f1', '#8b5cf6']}
-            style={styles.modalHeader}
-          >
-            <TouchableOpacity onPress={() => setShowPasswordModal(false)}>
-              <Text style={styles.modalCancel}>✕</Text>
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Change Password</Text>
-            <View style={styles.modalPlaceholder} />
-          </LinearGradient>
-          
-          <ScrollView style={styles.modalContent}>
-            <View style={styles.modalIllustration}>
-              <Text style={styles.modalIllustrationIcon}>🔒</Text>
-              <Text style={styles.modalIllustrationText}>
-                Create a strong password to secure your account
-              </Text>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Change Password</Text>
+              <TouchableOpacity onPress={() => setShowPasswordModal(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
             </View>
+            
+            <ScrollView style={styles.modalContent}>
+              <View style={styles.modalIllustration}>
+                <View style={styles.modalIconContainer}>
+                  <Text style={styles.modalIcon}>🔒</Text>
+                </View>
+                <Text style={styles.modalSubtitle}>Create a strong, unique password</Text>
+              </View>
 
-            {[
-              { label: 'Current Password', field: 'currentPassword' },
-              { label: 'New Password', field: 'newPassword' },
-              { label: 'Confirm New Password', field: 'confirmPassword' },
-            ].map((item, index) => (
-              <View key={item.field} style={styles.modalInputContainer}>
-                <Text style={styles.modalInputLabel}>{item.label}</Text>
+              <View style={styles.modalInputGroup}>
+                <Text style={styles.modalInputLabel}>Current Password</Text>
                 <TextInput
                   style={styles.modalTextInput}
-                  value={passwordData[item.field]}
-                  onChangeText={(value) => handlePasswordChange(item.field, value)}
+                  value={passwordData.currentPassword}
+                  onChangeText={(value) => setPasswordData(prev => ({ ...prev, currentPassword: value }))}
                   secureTextEntry
-                  placeholder={`Enter ${item.label.toLowerCase()}`}
-                  placeholderTextColor="#9ca3af"
+                  placeholder="Enter current password"
+                  placeholderTextColor="#9CA3AF"
                 />
               </View>
-            ))}
 
-            <TouchableOpacity
-              style={styles.changePasswordButton}
-              onPress={handleChangePassword}
-              disabled={isLoading}
-            >
-              <LinearGradient
-                colors={['#10b981', '#059669']}
-                style={styles.changePasswordGradient}
+              <View style={styles.modalInputGroup}>
+                <Text style={styles.modalInputLabel}>New Password</Text>
+                <TextInput
+                  style={styles.modalTextInput}
+                  value={passwordData.newPassword}
+                  onChangeText={(value) => setPasswordData(prev => ({ ...prev, newPassword: value }))}
+                  secureTextEntry
+                  placeholder="Enter new password"
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+
+              <View style={styles.modalInputGroup}>
+                <Text style={styles.modalInputLabel}>Confirm New Password</Text>
+                <TextInput
+                  style={styles.modalTextInput}
+                  value={passwordData.confirmPassword}
+                  onChangeText={(value) => setPasswordData(prev => ({ ...prev, confirmPassword: value }))}
+                  secureTextEntry
+                  placeholder="Confirm new password"
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={handleChangePassword}
+                disabled={isLoading}
               >
-                <Text style={styles.changePasswordButtonText}>
-                  {isLoading ? '🔄 Changing Password...' : '🔐 Change Password'}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </ScrollView>
-        </SafeAreaView>
+                <LinearGradient
+                  colors={['#3B82F6', '#1D4ED8']}
+                  style={styles.modalButtonGradient}
+                >
+                  <Text style={styles.modalButtonText}>
+                    {isLoading ? 'Updating Password...' : 'Update Password'}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F9FAFB',
   },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 50 : 30,
-    paddingBottom: 20,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 16,
   },
   headerContent: {
     flexDirection: 'row',
@@ -650,116 +649,158 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   backIcon: {
-    fontSize: 24,
-    color: '#ffffff',
-    fontWeight: 'bold',
+    fontSize: 20,
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   editButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
   editIcon: {
-    fontSize: 18,
-    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   scrollView: {
     flex: 1,
   },
-  scrollContent: {
-    paddingBottom: 30,
+  heroSection: {
+    paddingTop: Platform.OS === 'ios' ? 100 : 80,
+    paddingBottom: 32,
   },
-  profileHeader: {
+  heroContent: {
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  avatarSection: {
     alignItems: 'center',
-    padding: 24,
-    backgroundColor: '#ffffff',
-    marginHorizontal: 20,
-    marginTop: -30,
-    borderRadius: 20,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.1,
-        shadowRadius: 20,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
+    marginRight: 20,
   },
   avatarContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    position: 'relative',
+    marginBottom: 12,
+  },
+  avatarGradient: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
+        shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.3,
-        shadowRadius: 8,
+        shadowRadius: 16,
       },
       android: {
-        elevation: 6,
+        elevation: 12,
       },
     }),
   },
   avatarText: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#ffffff',
+    color: '#FFFFFF',
+  },
+  statusIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#10B981',
+    borderWidth: 2,
+    borderColor: '#1F2937',
+  },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  verifiedIcon: {
+    fontSize: 12,
+    color: '#10B981',
+    marginRight: 4,
+  },
+  verifiedText: {
+    fontSize: 12,
+    color: '#10B981',
+    fontWeight: '600',
+  },
+  profileInfo: {
+    flex: 1,
   },
   userName: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   userRole: {
     fontSize: 16,
-    color: '#6b7280',
-    backgroundColor: '#f3f4f6',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginBottom: 8,
+    color: '#D1D5DB',
+    marginBottom: 2,
   },
-  verifiedBadge: {
-    backgroundColor: '#10b981',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+  userCompany: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginBottom: 16,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 12,
+    padding: 12,
   },
-  verifiedText: {
-    color: '#ffffff',
+  statMini: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statMiniValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  statMiniLabel: {
     fontSize: 12,
-    fontWeight: '600',
+    color: '#D1D5DB',
+  },
+  statDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
   statsSection: {
-    marginHorizontal: 20,
-    marginTop: 20,
-    marginBottom: 10,
+    padding: 20,
+    backgroundColor: '#FFFFFF',
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
     marginBottom: 16,
   },
   statsGrid: {
@@ -768,127 +809,96 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   statCard: {
-    width: (width - 60) / 2,
-    backgroundColor: '#ffffff',
+    width: (width - 48) / 2,
+    backgroundColor: '#F9FAFB',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    borderLeftWidth: 4,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  statHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  statIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   statIcon: {
-    fontSize: 24,
-    marginBottom: 8,
+    fontSize: 16,
   },
-  statNumber: {
+  trendIndicator: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  trendText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  statValue: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: '#111827',
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
-    color: '#6b7280',
+    color: '#6B7280',
     fontWeight: '500',
   },
-  sectionTabs: {
+  tabContainer: {
     flexDirection: 'row',
-    marginHorizontal: 20,
-    marginBottom: 20,
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 4,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
-  sectionButton: {
+  tabButton: {
     flex: 1,
-    flexDirection: 'row',
+    paddingVertical: 16,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: 'transparent',
+    position: 'relative',
   },
-  sectionButtonActive: {
-    backgroundColor: '#6366f1',
-  },
-  sectionButtonIcon: {
-    fontSize: 16,
-    marginRight: 6,
-    color: '#6b7280',
-  },
-  sectionButtonIconActive: {
-    color: '#ffffff',
-  },
-  sectionButtonText: {
+  tabText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#6b7280',
+    fontWeight: '500',
+    color: '#6B7280',
   },
-  sectionButtonTextActive: {
-    color: '#ffffff',
+  tabTextActive: {
+    color: '#3B82F6',
+    fontWeight: '600',
+  },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: '25%',
+    right: '25%',
+    height: 3,
+    backgroundColor: '#3B82F6',
+    borderRadius: 1.5,
+  },
+  tabContent: {
+    backgroundColor: '#FFFFFF',
   },
   section: {
-    marginHorizontal: 20,
-    marginBottom: 24,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  editIndicator: {
-    backgroundColor: '#f3f4f6',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  editIndicatorText: {
-    fontSize: 12,
-    color: '#6b7280',
-    fontWeight: '500',
+    padding: 20,
   },
   formContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+    // No background, using cards instead
   },
-  inputWrapper: {
+  inputGroup: {
     marginBottom: 20,
   },
-  inputLabelContainer: {
+  inputLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
@@ -896,35 +906,35 @@ const styles = StyleSheet.create({
   inputIcon: {
     fontSize: 16,
     marginRight: 8,
-    color: '#6b7280',
+    color: '#6B7280',
   },
   inputLabel: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#374151',
   },
   textInput: {
-    borderWidth: 2,
-    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#1f2937',
-    backgroundColor: '#f8fafc',
+    color: '#111827',
+    backgroundColor: '#FFFFFF',
   },
   textInputReadonly: {
-    backgroundColor: '#f9fafb',
-    color: '#6b7280',
-    borderColor: '#f1f5f9',
+    backgroundColor: '#F9FAFB',
+    color: '#6B7280',
+    borderColor: '#E5E7EB',
   },
   saveButton: {
-    borderRadius: 16,
+    borderRadius: 12,
     overflow: 'hidden',
     marginTop: 8,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: '#3B82F6',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -937,260 +947,230 @@ const styles = StyleSheet.create({
   saveButtonGradient: {
     paddingVertical: 16,
     alignItems: 'center',
-    borderRadius: 16,
+    borderRadius: 12,
   },
   saveButtonText: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: 'bold',
-  },
-  preferencesContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
-  },
-  preferenceItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  preferenceItemLast: {
-    borderBottomWidth: 0,
-  },
-  preferenceLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  preferenceIcon: {
-    fontSize: 20,
-    marginRight: 16,
-    color: '#6366f1',
-  },
-  preferenceTitle: {
-    fontSize: 16,
-    color: '#1f2937',
     fontWeight: '600',
-    marginBottom: 4,
   },
-  preferenceDescription: {
-    fontSize: 12,
-    color: '#6b7280',
-  },
-  menuContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+  settingsContainer: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
     overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
   },
-  menuItem: {
+  settingItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: '#F3F4F6',
   },
-  menuItemLast: {
-    borderBottomWidth: 0,
-  },
-  menuLeft: {
+  settingLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
-  menuIconContainer: {
+  settingIconContainer: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: '#f3f4f6',
+    borderRadius: 10,
+    backgroundColor: '#EFF6FF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 12,
   },
-  menuIcon: {
+  settingIcon: {
     fontSize: 18,
-    color: '#6366f1',
+    color: '#3B82F6',
   },
-  menuTitle: {
+  settingTextContainer: {
+    flex: 1,
+  },
+  settingTitle: {
     fontSize: 16,
-    color: '#1f2937',
-    fontWeight: '600',
+    fontWeight: '500',
+    color: '#111827',
+    marginBottom: 2,
   },
-  menuArrowContainer: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#f3f4f6',
-    justifyContent: 'center',
-    alignItems: 'center',
+  settingDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 18,
   },
-  menuArrow: {
-    fontSize: 16,
-    color: '#9ca3af',
+  arrowButton: {
+    padding: 4,
+  },
+  arrowIcon: {
+    fontSize: 18,
+    color: '#9CA3AF',
     fontWeight: 'bold',
   },
-  dangerContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+  securityContainer: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
     overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+  },
+  securityItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  securityLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  securityIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#FEF3F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  securityIcon: {
+    fontSize: 18,
+    color: '#DC2626',
+  },
+  securityTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#111827',
+    marginBottom: 2,
+  },
+  securityDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    marginHorizontal: 4,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
   },
   logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
   },
-  logoutIcon: {
-    fontSize: 20,
-    marginRight: 16,
-    color: '#6b7280',
+  actionIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  actionText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
   },
   logoutText: {
-    fontSize: 16,
-    color: '#6b7280',
-    fontWeight: '600',
+    color: '#DC2626',
   },
-  deleteButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
-  },
-  deleteIcon: {
-    fontSize: 20,
-    marginRight: 16,
-    color: '#ef4444',
-  },
-  deleteText: {
-    fontSize: 16,
-    color: '#ef4444',
-    fontWeight: '600',
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
   },
   modalContainer: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 20,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-  },
-  modalCancel: {
-    fontSize: 20,
-    color: '#ffffff',
-    fontWeight: 'bold',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#ffffff',
+    fontWeight: '600',
+    color: '#111827',
   },
-  modalPlaceholder: {
-    width: 20,
+  modalClose: {
+    fontSize: 20,
+    color: '#6B7280',
+    fontWeight: '300',
   },
   modalContent: {
     padding: 20,
   },
   modalIllustration: {
     alignItems: 'center',
-    marginBottom: 30,
-    padding: 20,
+    marginBottom: 32,
   },
-  modalIllustrationIcon: {
-    fontSize: 64,
+  modalIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 20,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 16,
   },
-  modalIllustrationText: {
-    fontSize: 16,
-    color: '#6b7280',
-    textAlign: 'center',
-    lineHeight: 24,
+  modalIcon: {
+    fontSize: 32,
   },
-  modalInputContainer: {
+  modalSubtitle: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  modalInputGroup: {
     marginBottom: 20,
   },
   modalInputLabel: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#374151',
     marginBottom: 8,
   },
   modalTextInput: {
-    borderWidth: 2,
-    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#1f2937',
-    backgroundColor: '#f8fafc',
+    color: '#111827',
+    backgroundColor: '#FFFFFF',
   },
-  changePasswordButton: {
-    borderRadius: 16,
+  modalButton: {
+    borderRadius: 12,
     overflow: 'hidden',
-    marginTop: 20,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
+    marginTop: 8,
   },
-  changePasswordGradient: {
+  modalButtonGradient: {
     paddingVertical: 16,
     alignItems: 'center',
-    borderRadius: 16,
+    borderRadius: 12,
   },
-  changePasswordButtonText: {
-    color: '#ffffff',
+  modalButtonText: {
+    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
   bottomSpacing: {
     height: 20,
   },
 });
+
+export default ProfileScreen;
