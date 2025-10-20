@@ -561,6 +561,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
+    
     ...Platform.select({
       ios: {
         shadowColor: '#000',
