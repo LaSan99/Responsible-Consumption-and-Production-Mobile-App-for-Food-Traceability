@@ -37,6 +37,19 @@ const SupplyChain = {
     );
   },
 
+  getStagesByBatchCode: (batch_code, callback) => {
+    db.query(
+      `SELECT sc.*, u.full_name as updated_by_name, p.name as product_name, p.batch_code
+       FROM supply_chain sc 
+       JOIN products p ON sc.product_id = p.id
+       JOIN users u ON sc.updated_by = u.id 
+       WHERE p.batch_code = ? 
+       ORDER BY sc.timestamp ASC`,
+      [batch_code],
+      callback
+    );
+  },
+
     // Get all stages (for all products)
   getAllStages: (callback) => {
     db.query(
