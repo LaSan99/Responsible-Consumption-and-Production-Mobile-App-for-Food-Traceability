@@ -15,8 +15,8 @@ import {
 } from "react-native";
 import MapView, { Marker, Circle } from "react-native-maps";
 import * as Location from "expo-location";
-import axios from "axios";
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native'; // 👈 Add this
 
 // --- simple haversine distance in KM ---
 const distanceKm = (a, b) => {
@@ -34,9 +34,6 @@ const distanceKm = (a, b) => {
 
 const NEAREST_COUNT = 5;
 const MAX_RADIUS_KM = 25;
-
-// Android emulator can't use "localhost"
-const baseHost = Platform.OS === "android" ? "http://10.0.2.2:5000" : "http://localhost:5000";
 
 // Mock data for testing when API fails
 const MOCK_SUPPLIERS = [
@@ -124,7 +121,9 @@ const geocodeLocation = (locationText) => {
   return null;
 };
 
-export default function NearestSuppliersByProduct({ productId = "1", onBack }) {
+// ✅ Removed `onBack` prop — now using navigation hook
+export default function NearestSuppliersByProduct({ productId = "1" }) {
+  const navigation = useNavigation(); // 👈 Get navigation object
   const [userLocation, setUserLocation] = useState(null);
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -134,96 +133,22 @@ export default function NearestSuppliersByProduct({ productId = "1", onBack }) {
   const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
 
-  const loadSuppliers = async () => {
-    try {
-      console.log(`Fetching all supply chain stages...`);
-      
-      // Use the correct URL you provided
-      const url = `${baseHost}/supply-chain/stages/all`;
-      console.log("API URL:", url);
-      
-      const res = await axios.get(url, { timeout: 8000 });
-      console.log("API Response received:", res.data);
-
-      // Handle different response formats
-      let raw = [];
-      
-      if (Array.isArray(res.data)) {
-        raw = res.data;
-      } else if (res.data && typeof res.data === 'object') {
-        raw = res.data.stages || res.data.suppliers || res.data.data || [];
-      }
-
-      if (raw.length === 0) {
-        throw new Error("No stages data found in response");
-      }
-
-      // Normalize stage data and geocode locations
-      const normalized = raw
-        .map((stage, index) => {
-          // First try explicit coordinates
-          let coords = null;
-          if (stage.latitude && stage.longitude) {
-            coords = { latitude: Number(stage.latitude), longitude: Number(stage.longitude) };
-          } else if (stage.lat && stage.lng) {
-            coords = { latitude: Number(stage.lat), longitude: Number(stage.lng) };
-          } else {
-            // Geocode from location text
-            const locationText = stage.location || stage.location_text || stage.address || stage.city || 'Colombo';
-            coords = geocodeLocation(locationText);
-          }
-
-          // If still no coordinates, create a fallback
-          if (!coords) {
-            const variation = (index * 0.002) % 0.02;
-            coords = {
-              latitude: 6.9271 + variation,
-              longitude: 79.8612 + variation,
-            };
-          }
-
-          return {
-            id: stage.id || stage.stage_id || `stage-${index}-${Date.now()}`,
-            name: stage.stage_name || stage.name || `Stage ${index + 1}`,
-            coords: coords,
-            address: stage.location || stage.address || stage.location_text || stage.city || 'Unknown location',
-            description: stage.description,
-            notes: stage.notes,
-            updated_by: stage.updated_by,
-            updated_by_name: stage.updated_by_name,
-            timestamp: stage.timestamp,
-            product_id: stage.product_id,
-          };
-        })
-        .filter((stage) => 
-          stage.coords && 
-          Number.isFinite(stage.coords.latitude) && 
-          Number.isFinite(stage.coords.longitude)
-        );
-
-      setSuppliers(normalized);
-      setUsingMockData(false);
-      setApiError(null);
-
-    } catch (error) {
-      console.error("API Error:", error.message);
-      
-      // Use mock data as fallback
-      const normalizedMock = MOCK_SUPPLIERS.map((s, index) => ({
-        id: s.id || `mock-${index}`,
-        name: s.stage_name,
-        coords: { latitude: s.latitude, longitude: s.longitude },
-        address: s.location,
-        description: s.description,
-        notes: s.notes,
-        updated_by_name: s.updated_by_name,
-        timestamp: s.timestamp,
-      }));
-      
-      setSuppliers(normalizedMock);
-      setUsingMockData(true);
-      setApiError(`Network connection issue. Showing sample data.`);
-    }
+  const loadSuppliers = () => {
+    // Use only dummy data - no API calls
+    const normalizedMock = MOCK_SUPPLIERS.map((s, index) => ({
+      id: s.id || `mock-${index}`,
+      name: s.stage_name,
+      coords: { latitude: s.latitude, longitude: s.longitude },
+      address: s.location,
+      description: s.description,
+      notes: s.notes,
+      updated_by_name: s.updated_by_name,
+      timestamp: s.timestamp,
+    }));
+    
+    setSuppliers(normalizedMock);
+    setUsingMockData(true);
+    setApiError(null);
   };
 
   useEffect(() => {
@@ -231,47 +156,39 @@ export default function NearestSuppliersByProduct({ productId = "1", onBack }) {
 
     (async () => {
       try {
-        // 1) Get user's REAL current location with high accuracy
-        console.log("Requesting location permission...");
         const { status } = await Location.requestForegroundPermissionsAsync();
         
         if (status !== "granted") {
           const errorMsg = "Location permission denied";
           if (isMounted) {
             setLocationError(errorMsg);
-            // Continue with default location
             setUserLocation({ latitude: 6.9271, longitude: 79.8612 });
           }
         } else {
-          console.log("Getting current position...");
           const location = await Location.getCurrentPositionAsync({
             accuracy: Location.Accuracy.High,
             timeout: 10000,
           });
 
           if (isMounted) {
-            const userCoords = {
+            setUserLocation({
               latitude: location.coords.latitude,
               longitude: location.coords.longitude,
-            };
-            setUserLocation(userCoords);
+            });
             setLocationError(null);
           }
         }
 
-        // 2) Load suppliers
-        await loadSuppliers();
+        loadSuppliers();
 
       } catch (error) {
         console.error("Load error:", error);
-        if (isMounted) {
-          if (error.message.includes("location")) {
-            setLocationError(error.message);
-          }
+        if (isMounted && error.message.includes("location")) {
+          setLocationError(error.message);
         }
       } finally {
         if (isMounted) {
-          setTimeout(() => setLoading(false), 1000); // Show loading for min 1 sec
+          setTimeout(() => setLoading(false), 1000);
         }
       }
     })();
@@ -313,9 +230,8 @@ export default function NearestSuppliersByProduct({ productId = "1", onBack }) {
   const retryLoad = () => {
     setLoading(true);
     setApiError(null);
-    loadSuppliers().finally(() => {
-      setTimeout(() => setLoading(false), 1000);
-    });
+    loadSuppliers();
+    setTimeout(() => setLoading(false), 1000);
   };
 
   const handleSupplierPress = (supplier) => {
@@ -331,6 +247,11 @@ export default function NearestSuppliersByProduct({ productId = "1", onBack }) {
     } catch {
       return 'Invalid date';
     }
+  };
+
+  // ✅ Handle back press: go to Home tab
+  const handleBackPress = () => {
+   navigation.navigate('MainTabs', { screen: 'Home' }); // 👈 Navigate to Home tab
   };
 
   if (loading) {
@@ -358,7 +279,7 @@ export default function NearestSuppliersByProduct({ productId = "1", onBack }) {
       
       {/* Header with Back Button */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
+        <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
           <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
@@ -374,7 +295,6 @@ export default function NearestSuppliersByProduct({ productId = "1", onBack }) {
           showsUserLocation={true}
           showsMyLocationButton={true}
         >
-          {/* User's current location */}
           {userLocation && (
             <Marker 
               coordinate={userLocation} 
@@ -384,7 +304,6 @@ export default function NearestSuppliersByProduct({ productId = "1", onBack }) {
             />
           )}
           
-          {/* Search radius circle around user */}
           {userLocation && (
             <Circle 
               center={userLocation} 
@@ -395,7 +314,6 @@ export default function NearestSuppliersByProduct({ productId = "1", onBack }) {
             />
           )}
 
-          {/* All suppliers/stages */}
           {suppliers.map((supplier) => (
             <Marker
               key={supplier.id}
@@ -407,7 +325,6 @@ export default function NearestSuppliersByProduct({ productId = "1", onBack }) {
             />
           ))}
 
-          {/* Nearest suppliers with special marker */}
           {nearestSuppliers.map((supplier) => (
             <Marker
               key={`nearest-${supplier.id}`}
@@ -420,7 +337,6 @@ export default function NearestSuppliersByProduct({ productId = "1", onBack }) {
           ))}
         </MapView>
 
-        {/* Information panel */}
         <View style={styles.infoPanel}>
           {apiError && (
             <View style={styles.errorBanner}>
@@ -561,6 +477,7 @@ export default function NearestSuppliersByProduct({ productId = "1", onBack }) {
   );
 }
 
+// ... (styles remain exactly the same — no changes needed below)
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
