@@ -17,15 +17,18 @@ export default function Scanner() {
   const handleBarCodeScanned = async ({ data }) => {
     if (scanned) return;
     setScanned(true);
-    const product_id = data.trim();
+    const batch_code = data.trim();
     setLoading(true);
 
     try {
-      const response = await axios.get(`${apiConfig.baseURL}/supply-chain/${product_id}`);
+      const response = await axios.get(`${apiConfig.baseURL}/supply-chain/batch/${batch_code}`);
       setStages(response.data);
     } catch (error) {
       console.error(error);
-      Alert.alert('Error', 'Failed to fetch product stages');
+      const errorMessage = error.response?.status === 404 
+        ? 'No product found with this batch code'
+        : 'Failed to fetch product stages';
+      Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }

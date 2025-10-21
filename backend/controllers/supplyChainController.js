@@ -37,6 +37,17 @@ exports.getProductStages = (req, res) => {
   });
 };
 
+exports.getStagesByBatchCode = (req, res) => {
+  const { batch_code } = req.params;
+  SupplyChain.getStagesByBatchCode(batch_code, (err, results) => {
+    if (err) return res.status(500).json({ message: 'Error fetching blockchain stages', error: err });
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'No product found with this batch code' });
+    }
+    res.json(results);
+  });
+};
+
 exports.getProducerStages = (req, res) => {
   SupplyChain.getStagesByProducer(req.user.id, (err, results) => {
     if (err) return res.status(500).json({ message: 'Error fetching producer stages' });
