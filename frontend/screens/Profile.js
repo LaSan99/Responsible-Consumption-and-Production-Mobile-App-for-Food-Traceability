@@ -14,6 +14,7 @@ import {
   Modal,
   Animated,
   RefreshControl,
+  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -34,17 +35,25 @@ const ProfileScreen = ({ navigation }) => {
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const headerScroll = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
 
   useEffect(() => {
     loadUserData();
     if (user?.role === 'producer') {
       loadProducerProducts();
     }
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 600,
-      useNativeDriver: true,
-    }).start();
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
   }, [user?.role]);
 
   const onRefresh = React.useCallback(async () => {
@@ -125,7 +134,6 @@ const ProfileScreen = ({ navigation }) => {
     try {
       const token = await AsyncStorage.getItem('token');
       
-      // Prepare update data
       const updateData = {
         full_name: profileData.full_name,
         email: profileData.email,
@@ -134,7 +142,6 @@ const ProfileScreen = ({ navigation }) => {
         company: profileData.company,
       };
 
-      // Make API call to update profile
       const response = await axios.put(
         `${apiConfig.baseURL}/auth/profile`,
         updateData,
@@ -143,7 +150,6 @@ const ProfileScreen = ({ navigation }) => {
         }
       );
 
-      // Update local storage
       const updatedUser = { ...user, ...updateData };
       await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
       setUser(updatedUser);
@@ -198,26 +204,25 @@ const ProfileScreen = ({ navigation }) => {
     }
   };
 
-  const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            await AsyncStorage.multiRemove(['token', 'user']);
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Login' }],
-            });
-          },
-        },
-      ]
-    );
-  };
+const handleLogout = async () => {
+  try {
+    setIsLoading(true);
+
+    // Remove stored authentication data
+    await AsyncStorage.multiRemove(['token', 'user']);
+
+  
+
+    console.log("User logged out successfully");
+  } catch (error) {
+    console.error("Logout error:", error);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+
+
 
   const handleScroll = (event) => {
     const scrollY = event.nativeEvent.contentOffset.y;
@@ -229,14 +234,14 @@ const ProfileScreen = ({ navigation }) => {
     const totalProducts = products.length;
     const activeProducts = products.filter(p => p.status === 'active').length;
     const certifiedProducts = products.filter(p => p.certifications && p.certifications.length > 0).length;
+    const totalRevenue = products.reduce((sum, product) => sum + (product.price * (product.soldQuantity || 0)), 0);
     
     return {
-      projectsCompleted: totalProducts,
-      teamMembers: 1, // Single producer for now
+      totalProducts,
+      activeProducts,
+      certifiedProducts,
+      totalRevenue,
       satisfactionRate: totalProducts > 0 ? Math.round((activeProducts / totalProducts) * 100) : 0,
-      tasksCompleted: totalProducts * 3, // Assuming 3 tasks per product
-      activeProducts: activeProducts,
-      certifiedProducts: certifiedProducts,
     };
   };
 
@@ -247,61 +252,96 @@ const ProfileScreen = ({ navigation }) => {
       favoriteProducts: 8,
       satisfactionRate: 95,
       reviewsWritten: 6,
+      totalSpent: 1247.50,
     };
   };
 
   const stats = user?.role === 'producer' ? getProducerStats() : getConsumerStats();
 
-  const ProfessionalStatCard = ({ icon, value, label, trend }) => (
-    <View style={styles.statCard}>
-      <View style={styles.statHeader}>
-        <View style={styles.statIconContainer}>
-          <Text style={styles.statIcon}>{icon}</Text>
-        </View>
-        {trend && (
-          <View style={[styles.trendIndicator, { backgroundColor: trend > 0 ? '#10B981' : '#EF4444' }]}>
-            <Text style={styles.trendText}>
-              {trend > 0 ? '↗' : '↘'} {Math.abs(trend)}%
-            </Text>
-          </View>
-        )}
+  const ProfessionalStatCard = ({ icon, value, label, trend, color }) => (
+    <Animated.View 
+      style={[
+        styles.statCard,
+        { 
+          opacity: fadeAnim,
+          transform: [{ scale: scaleAnim }] 
+        }
+      ]}
+    >
+      <View style={[styles.statIconContainer, { backgroundColor: color }]}>
+        <Text style={styles.statIcon}>{icon}</Text>
       </View>
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
-    </View>
+      {trend && (
+        <View style={[styles.trendIndicator, { backgroundColor: trend > 0 ? '#10B981' : '#EF4444' }]}>
+          <Ionicons 
+            name={trend > 0 ? "trending-up" : "trending-down"} 
+            size={12} 
+            color="#FFFFFF" 
+          />
+          <Text style={styles.trendText}>{Math.abs(trend)}%</Text>
+        </View>
+      )}
+    </Animated.View>
   );
 
-  const ProductCard = ({ product }) => (
-    <View style={styles.productCard}>
-      <View style={styles.productHeader}>
-        <Text style={styles.productName}>{product.name}</Text>
+  const ProductCard = ({ product, index }) => (
+    <Animated.View 
+      style={[
+        styles.productCard,
+        {
+          opacity: fadeAnim,
+          transform: [
+            { translateY: fadeAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [50, 0]
+            })}
+          ]
+        }
+      ]}
+    >
+      <View style={styles.productImageContainer}>
+        <LinearGradient
+          colors={['#4CAF50', '#45a049']}
+          style={styles.productImage}
+        >
+          <Text style={styles.productImageText}>
+            {product.name?.charAt(0).toUpperCase()}
+          </Text>
+        </LinearGradient>
         <View style={[styles.statusBadge, 
           { backgroundColor: product.status === 'active' ? '#10B981' : '#6B7280' }]}>
           <Text style={styles.statusText}>{product.status}</Text>
         </View>
       </View>
-      <Text style={styles.productDescription} numberOfLines={2}>
-        {product.description}
-      </Text>
-      <View style={styles.productDetails}>
-        <Text style={styles.productPrice}>${product.price}</Text>
-        <Text style={styles.productCategory}>{product.category}</Text>
-      </View>
-      {product.certifications && product.certifications.length > 0 && (
-        <View style={styles.certifications}>
-          <Text style={styles.certificationsText}>
-            Certifications: {product.certifications.join(', ')}
-          </Text>
+      
+      <View style={styles.productContent}>
+        <Text style={styles.productName} numberOfLines={1}>{product.name}</Text>
+        <Text style={styles.productDescription} numberOfLines={2}>
+          {product.description}
+        </Text>
+        <View style={styles.productDetails}>
+          <Text style={styles.productPrice}>${product.price}</Text>
+          <Text style={styles.productCategory}>{product.category}</Text>
         </View>
-      )}
-    </View>
+        {product.certifications && product.certifications.length > 0 && (
+          <View style={styles.certifications}>
+            <Ionicons name="ribbon-outline" size={12} color="#6B7280" />
+            <Text style={styles.certificationsText}>
+              {product.certifications.length} certifications
+            </Text>
+          </View>
+        )}
+      </View>
+    </Animated.View>
   );
 
-  const SettingItem = ({ icon, title, description, value, onValueChange, type = 'switch' }) => (
+  const SettingItem = ({ icon, title, description, value, onValueChange, type = 'switch', color = '#4CAF50' }) => (
     <View style={styles.settingItem}>
       <View style={styles.settingLeft}>
-        <View style={styles.settingIconContainer}>
-          <Ionicons name={icon} size={20} color="#3B82F6" />
+        <View style={[styles.settingIconContainer, { backgroundColor: `${color}15` }]}>
+          <Ionicons name={icon} size={20} color={color} />
         </View>
         <View style={styles.settingTextContainer}>
           <Text style={styles.settingTitle}>{title}</Text>
@@ -312,8 +352,8 @@ const ProfileScreen = ({ navigation }) => {
         <Switch
           value={value}
           onValueChange={onValueChange}
-          trackColor={{ false: '#E5E7EB', true: '#4CAF50' }}
-          thumbColor="#FFFFFF"
+          trackColor={{ false: '#E5E7EB', true: `${color}80` }}
+          thumbColor={value ? color : '#FFFFFF'}
         />
       ) : (
         <TouchableOpacity style={styles.arrowButton}>
@@ -323,11 +363,17 @@ const ProfileScreen = ({ navigation }) => {
     </View>
   );
 
-  const TabButton = ({ title, isActive, onPress }) => (
+  const TabButton = ({ title, isActive, onPress, icon }) => (
     <TouchableOpacity
       style={[styles.tabButton, isActive && styles.tabButtonActive]}
       onPress={onPress}
     >
+      <Ionicons 
+        name={icon} 
+        size={20} 
+        color={isActive ? '#4CAF50' : '#6B7280'} 
+        style={styles.tabIcon}
+      />
       <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
         {title}
       </Text>
@@ -352,17 +398,17 @@ const ProfileScreen = ({ navigation }) => {
   const getRoleSpecificStats = () => {
     if (user?.role === 'producer') {
       return [
-        { icon: "🌱", value: stats.projectsCompleted, label: "Total Products" },
-        { icon: "✅", value: stats.activeProducts, label: "Active Products" },
-        { icon: "📜", value: stats.certifiedProducts, label: "Certified Products" },
-        { icon: "⭐", value: `${stats.satisfactionRate}%`, label: "Active Rate" },
+        { icon: "🌱", value: stats.totalProducts, label: "Total Products", color: '#10B981' },
+        { icon: "✅", value: stats.activeProducts, label: "Active", color: '#3B82F6' },
+        { icon: "📜", value: stats.certifiedProducts, label: "Certified", color: '#8B5CF6' },
+        { icon: "💰", value: `$${stats.totalRevenue}`, label: "Revenue", color: '#F59E0B' },
       ];
     } else {
       return [
-        { icon: "🛒", value: stats.ordersCompleted, label: "Orders Completed" },
-        { icon: "❤️", value: stats.favoriteProducts, label: "Favorite Products" },
-        { icon: "⭐", value: `${stats.satisfactionRate}%`, label: "Satisfaction Rate" },
-        { icon: "📝", value: stats.reviewsWritten, label: "Reviews Written" },
+        { icon: "🛒", value: stats.ordersCompleted, label: "Orders", color: '#10B981' },
+        { icon: "❤️", value: stats.favoriteProducts, label: "Favorites", color: '#EF4444' },
+        { icon: "⭐", value: `${stats.satisfactionRate}%`, label: "Satisfaction", color: '#F59E0B' },
+        { icon: "💰", value: `$${stats.totalSpent}`, label: "Total Spent", color: '#3B82F6' },
       ];
     }
   };
@@ -371,7 +417,7 @@ const ProfileScreen = ({ navigation }) => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#4CAF50" />
       
-      {/* Header */}
+      {/* Enhanced Header */}
       <Animated.View style={[styles.header, { opacity: headerOpacity }]}>
         <LinearGradient
           colors={['#4CAF50', '#388E3C']}
@@ -382,14 +428,18 @@ const ProfileScreen = ({ navigation }) => {
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Profile</Text>
           <TouchableOpacity 
-            style={styles.editButton}
+            style={[styles.editButton, isEditing && styles.editButtonActive]}
             onPress={() => setIsEditing(!isEditing)}
           >
-            <Text style={styles.editIcon}>{isEditing ? 'Cancel' : 'Edit'}</Text>
+            <Ionicons 
+              name={isEditing ? "close" : "create-outline"} 
+              size={20} 
+              color="#FFFFFF" 
+            />
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -400,29 +450,67 @@ const ProfileScreen = ({ navigation }) => {
         scrollEventThrottle={16}
         onScroll={handleScroll}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh}
+            colors={['#4CAF50']}
+            tintColor="#4CAF50"
+          />
         }
       >
-        {/* Profile Hero Section */}
+        {/* Enhanced Profile Hero Section */}
         <LinearGradient
-          colors={['#4CAF50', '#388E3C']}
+          colors={['#4CAF50', '#388E3C', '#2E7D32']}
           style={styles.heroSection}
         >
+          <View style={styles.heroBackground}>
+            <View style={styles.circle1} />
+            <View style={styles.circle2} />
+            <View style={styles.circle3} />
+          </View>
+          
           <View style={styles.heroContent}>
             <View style={styles.avatarSection}>
-              <View style={styles.avatarContainer}>
+              <Animated.View 
+                style={[
+                  styles.avatarContainer,
+                  {
+                    transform: [
+                      {
+                        scale: headerScroll.interpolate({
+                          inputRange: [0, 100],
+                          outputRange: [1, 0.8],
+                          extrapolate: 'clamp',
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              >
                 <LinearGradient
                   colors={['#4CAF50', '#45a049']}
                   style={styles.avatarGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
                 >
                   <Text style={styles.avatarText}>
                     {getInitials(user?.full_name)}
                   </Text>
                 </LinearGradient>
                 <View style={styles.statusIndicator} />
-              </View>
+                
+                {/* Role Badge */}
+                <View style={styles.roleBadge}>
+                  <Ionicons 
+                    name={user?.role === 'producer' ? "leaf" : "person"} 
+                    size={12} 
+                    color="#FFFFFF" 
+                  />
+                </View>
+              </Animated.View>
+              
               <View style={styles.verifiedBadge}>
-                <Ionicons name="checkmark-circle" size={12} color="#10B981" />
+                <Ionicons name="checkmark-circle" size={14} color="#10B981" />
                 <Text style={styles.verifiedText}>
                   Verified {getRoleDisplayName(user?.role)}
                 </Text>
@@ -431,14 +519,21 @@ const ProfileScreen = ({ navigation }) => {
             
             <View style={styles.profileInfo}>
               <Text style={styles.userName}>{user?.full_name || getRoleDisplayName(user?.role)}</Text>
-              <Text style={styles.userRole}>{getRoleDisplayName(user?.role)}</Text>
+              <View style={styles.roleContainer}>
+                <Ionicons 
+                  name={user?.role === 'producer' ? "business" : "person"} 
+                  size={14} 
+                  color="#E8F5E8" 
+                />
+                <Text style={styles.userRole}>{getRoleDisplayName(user?.role)}</Text>
+              </View>
               <Text style={styles.userCompany}>{profileData.company}</Text>
               
               <View style={styles.statsRow}>
                 {user?.role === 'producer' ? (
                   <>
                     <View style={styles.statMini}>
-                      <Text style={styles.statMiniValue}>{stats.projectsCompleted}</Text>
+                      <Text style={styles.statMiniValue}>{stats.totalProducts}</Text>
                       <Text style={styles.statMiniLabel}>Products</Text>
                     </View>
                     <View style={styles.statDivider} />
@@ -475,7 +570,7 @@ const ProfileScreen = ({ navigation }) => {
           </View>
         </LinearGradient>
 
-        {/* Stats Overview */}
+        {/* Enhanced Stats Overview */}
         <View style={styles.statsSection}>
           <Text style={styles.sectionTitle}>
             {user?.role === 'producer' ? 'Farm Overview' : 'Shopping Overview'}
@@ -487,193 +582,184 @@ const ProfileScreen = ({ navigation }) => {
                 icon={stat.icon} 
                 value={stat.value} 
                 label={stat.label}
+                color={stat.color}
               />
             ))}
           </View>
         </View>
 
-        {/* Products Section for Producer */}
+        {/* Enhanced Products Section for Producer */}
         {user?.role === 'producer' && products.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>My Products</Text>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>My Products</Text>
+              <TouchableOpacity style={styles.seeAllButton}>
+                <Text style={styles.seeAllText}>See All</Text>
+                <Ionicons name="chevron-forward" size={16} color="#4CAF50" />
+              </TouchableOpacity>
+            </View>
             <ScrollView 
               horizontal 
               showsHorizontalScrollIndicator={false}
               style={styles.productsScroll}
+              contentContainerStyle={styles.productsContainer}
             >
               {products.map((product, index) => (
-                <ProductCard key={product._id || index} product={product} />
+                <ProductCard key={product._id || index} product={product} index={index} />
               ))}
             </ScrollView>
           </View>
         )}
 
-        {/* Tab Navigation */}
+        {/* Enhanced Tab Navigation */}
         <View style={styles.tabContainer}>
           <TabButton 
             title="Profile" 
+            icon="person-outline"
             isActive={activeTab === 'profile'} 
             onPress={() => setActiveTab('profile')} 
           />
           <TabButton 
             title="Settings" 
+            icon="settings-outline"
             isActive={activeTab === 'settings'} 
             onPress={() => setActiveTab('settings')} 
           />
           <TabButton 
             title="Security" 
+            icon="shield-checkmark-outline"
             isActive={activeTab === 'security'} 
             onPress={() => setActiveTab('security')} 
           />
         </View>
 
-        {/* Profile Tab Content */}
+        {/* Enhanced Profile Tab Content */}
         {activeTab === 'profile' && (
           <Animated.View style={[styles.tabContent, { opacity: fadeAnim }]}>
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                {user?.role === 'producer' ? 'Producer Information' : 'Consumer Information'}
-              </Text>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>
+                  {user?.role === 'producer' ? 'Producer Information' : 'Personal Information'}
+                </Text>
+                <View style={styles.editIndicator}>
+                  <Ionicons 
+                    name={isEditing ? "pencil" : "pencil-outline"} 
+                    size={16} 
+                    color="#6B7280" 
+                  />
+                  <Text style={styles.editIndicatorText}>
+                    {isEditing ? 'Editing' : 'Edit'}
+                  </Text>
+                </View>
+              </View>
+              
               <View style={styles.formContainer}>
-                <View style={styles.inputGroup}>
-                  <View style={styles.inputLabelRow}>
-                    <Ionicons name="person-outline" size={16} color="#6B7280" />
-                    <Text style={styles.inputLabel}>Full Name</Text>
-                  </View>
-                  <TextInput
-                    style={[styles.textInput, !isEditing && styles.textInputReadonly]}
-                    value={profileData.full_name}
-                    onChangeText={(value) => setProfileData(prev => ({ ...prev, full_name: value }))}
-                    editable={isEditing}
-                    placeholderTextColor="#9CA3AF"
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <View style={styles.inputLabelRow}>
-                    <Ionicons name="mail-outline" size={16} color="#6B7280" />
-                    <Text style={styles.inputLabel}>Email Address</Text>
-                  </View>
-                  <TextInput
-                    style={[styles.textInput, !isEditing && styles.textInputReadonly]}
-                    value={profileData.email}
-                    onChangeText={(value) => setProfileData(prev => ({ ...prev, email: value }))}
-                    editable={isEditing}
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <View style={styles.inputLabelRow}>
-                    <Ionicons name="call-outline" size={16} color="#6B7280" />
-                    <Text style={styles.inputLabel}>Phone Number</Text>
-                  </View>
-                  <TextInput
-                    style={[styles.textInput, !isEditing && styles.textInputReadonly]}
-                    value={profileData.phone}
-                    onChangeText={(value) => setProfileData(prev => ({ ...prev, phone: value }))}
-                    editable={isEditing}
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="phone-pad"
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <View style={styles.inputLabelRow}>
-                    <Ionicons name="business-outline" size={16} color="#6B7280" />
-                    <Text style={styles.inputLabel}>
-                      {user?.role === 'producer' ? 'Farm/Business Name' : 'Organization (Optional)'}
-                    </Text>
-                  </View>
-                  <TextInput
-                    style={[styles.textInput, !isEditing && styles.textInputReadonly]}
-                    value={profileData.company}
-                    onChangeText={(value) => setProfileData(prev => ({ ...prev, company: value }))}
-                    editable={isEditing}
-                    placeholderTextColor="#9CA3AF"
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <View style={styles.inputLabelRow}>
-                    <Ionicons name="location-outline" size={16} color="#6B7280" />
-                    <Text style={styles.inputLabel}>
-                      {user?.role === 'producer' ? 'Farm Address' : 'Delivery Address'}
-                    </Text>
-                  </View>
-                  <TextInput
-                    style={[styles.textInput, !isEditing && styles.textInputReadonly]}
-                    value={profileData.address}
-                    onChangeText={(value) => setProfileData(prev => ({ ...prev, address: value }))}
-                    editable={isEditing}
-                    placeholderTextColor="#9CA3AF"
-                    multiline
-                  />
-                </View>
+                {[
+                  { icon: "person-outline", label: "Full Name", value: profileData.full_name, key: 'full_name' },
+                  { icon: "mail-outline", label: "Email Address", value: profileData.email, key: 'email', keyboardType: 'email-address' },
+                  { icon: "call-outline", label: "Phone Number", value: profileData.phone, key: 'phone', keyboardType: 'phone-pad' },
+                  { icon: "business-outline", label: user?.role === 'producer' ? 'Farm/Business Name' : 'Organization', value: profileData.company, key: 'company' },
+                  { icon: "location-outline", label: user?.role === 'producer' ? 'Farm Address' : 'Delivery Address', value: profileData.address, key: 'address', multiline: true },
+                ].map((field, index) => (
+                  <Animated.View 
+                    key={field.key}
+                    style={[
+                      styles.inputGroup,
+                      {
+                        opacity: fadeAnim,
+                        transform: [
+                          {
+                            translateY: fadeAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [20, 0]
+                            })
+                          }
+                        ]
+                      }
+                    ]}
+                  >
+                    <View style={styles.inputLabelRow}>
+                      <View style={styles.inputIcon}>
+                        <Ionicons name={field.icon} size={18} color="#4CAF50" />
+                      </View>
+                      <Text style={styles.inputLabel}>{field.label}</Text>
+                    </View>
+                    <TextInput
+                      style={[styles.textInput, !isEditing && styles.textInputReadonly]}
+                      value={field.value}
+                      onChangeText={(value) => setProfileData(prev => ({ ...prev, [field.key]: value }))}
+                      editable={isEditing}
+                      placeholderTextColor="#9CA3AF"
+                      keyboardType={field.keyboardType}
+                      multiline={field.multiline}
+                      autoCapitalize="none"
+                    />
+                  </Animated.View>
+                ))}
               </View>
 
               {isEditing && (
-                <TouchableOpacity
-                  style={styles.saveButton}
-                  onPress={handleSaveProfile}
-                  disabled={isLoading}
+                <Animated.View
+                  style={{
+                    opacity: fadeAnim,
+                    transform: [{ scale: fadeAnim }]
+                  }}
                 >
-                  <LinearGradient
-                    colors={['#4CAF50', '#45a049']}
-                    style={styles.saveButtonGradient}
+                  <TouchableOpacity
+                    style={styles.saveButton}
+                    onPress={handleSaveProfile}
+                    disabled={isLoading}
                   >
-                    <Text style={styles.saveButtonText}>
-                      {isLoading ? 'Saving Changes...' : 'Save Changes'}
-                    </Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+                    <LinearGradient
+                      colors={['#4CAF50', '#45a049']}
+                      style={styles.saveButtonGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                    >
+                      {isLoading ? (
+                        <Ionicons name="refresh" size={20} color="#FFFFFF" />
+                      ) : (
+                        <Ionicons name="checkmark" size={20} color="#FFFFFF" />
+                      )}
+                      <Text style={styles.saveButtonText}>
+                        {isLoading ? 'Saving...' : 'Save Changes'}
+                      </Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </Animated.View>
               )}
             </View>
           </Animated.View>
         )}
 
-        {/* Settings Tab Content */}
+        {/* Enhanced Settings Tab Content */}
         {activeTab === 'settings' && (
           <Animated.View style={[styles.tabContent, { opacity: fadeAnim }]}>
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Preferences</Text>
               <View style={styles.settingsContainer}>
-                <SettingItem
-                  icon="notifications-outline"
-                  title="Push Notifications"
-                  description={`Get instant notifications about ${user?.role === 'producer' ? 'your products' : 'your orders'}`}
-                  value={preferences.pushNotifications}
-                  onValueChange={(value) => setPreferences(prev => ({ ...prev, pushNotifications: value }))}
-                />
-                <SettingItem
-                  icon="mail-outline"
-                  title="Email Notifications"
-                  description="Receive important updates via email"
-                  value={preferences.emailNotifications}
-                  onValueChange={(value) => setPreferences(prev => ({ ...prev, emailNotifications: value }))}
-                />
-                <SettingItem
-                  icon="cloud-upload-outline"
-                  title="Auto Sync"
-                  description={`Automatically sync your ${user?.role === 'producer' ? 'product' : 'order'} data`}
-                  value={preferences.autoSync}
-                  onValueChange={(value) => setPreferences(prev => ({ ...prev, autoSync: value }))}
-                />
-                <SettingItem
-                  icon="moon-outline"
-                  title="Dark Mode"
-                  description="Switch to dark theme"
-                  value={preferences.darkMode}
-                  onValueChange={(value) => setPreferences(prev => ({ ...prev, darkMode: value }))}
-                />
+                {[
+                  { icon: "notifications-outline", title: "Push Notifications", description: `Get instant notifications about ${user?.role === 'producer' ? 'your products' : 'your orders'}`, value: preferences.pushNotifications, key: 'pushNotifications', color: '#3B82F6' },
+                  { icon: "mail-outline", title: "Email Notifications", description: "Receive important updates via email", value: preferences.emailNotifications, key: 'emailNotifications', color: '#EF4444' },
+                  { icon: "cloud-upload-outline", title: "Auto Sync", description: `Automatically sync your ${user?.role === 'producer' ? 'product' : 'order'} data`, value: preferences.autoSync, key: 'autoSync', color: '#8B5CF6' },
+                  { icon: "moon-outline", title: "Dark Mode", description: "Switch to dark theme", value: preferences.darkMode, key: 'darkMode', color: '#6B7280' },
+                ].map((setting, index) => (
+                  <SettingItem
+                    key={setting.key}
+                    icon={setting.icon}
+                    title={setting.title}
+                    description={setting.description}
+                    value={setting.value}
+                    onValueChange={(value) => setPreferences(prev => ({ ...prev, [setting.key]: value }))}
+                    color={setting.color}
+                  />
+                ))}
               </View>
             </View>
           </Animated.View>
         )}
 
-        {/* Security Tab Content */}
+        {/* Enhanced Security Tab Content */}
         {activeTab === 'security' && (
           <Animated.View style={[styles.tabContent, { opacity: fadeAnim }]}>
             <View style={styles.section}>
@@ -684,7 +770,7 @@ const ProfileScreen = ({ navigation }) => {
                   onPress={() => setShowPasswordModal(true)}
                 >
                   <View style={styles.securityLeft}>
-                    <View style={styles.securityIconContainer}>
+                    <View style={[styles.securityIconContainer, { backgroundColor: '#4CAF5015' }]}>
                       <Ionicons name="key-outline" size={20} color="#4CAF50" />
                     </View>
                     <View>
@@ -697,8 +783,8 @@ const ProfileScreen = ({ navigation }) => {
 
                 <TouchableOpacity style={styles.securityItem}>
                   <View style={styles.securityLeft}>
-                    <View style={styles.securityIconContainer}>
-                      <Ionicons name="shield-checkmark-outline" size={20} color="#4CAF50" />
+                    <View style={[styles.securityIconContainer, { backgroundColor: '#3B82F615' }]}>
+                      <Ionicons name="shield-checkmark-outline" size={20} color="#3B82F6" />
                     </View>
                     <View>
                       <Text style={styles.securityTitle}>Privacy Settings</Text>
@@ -714,15 +800,19 @@ const ProfileScreen = ({ navigation }) => {
               <Text style={styles.sectionTitle}>Account Actions</Text>
               <View style={styles.actionsContainer}>
                 <TouchableOpacity style={styles.actionButton}>
-                  <Ionicons name="download-outline" size={16} color="#374151" />
+                  <View style={[styles.actionIcon, { backgroundColor: '#3B82F615' }]}>
+                    <Ionicons name="download-outline" size={18} color="#3B82F6" />
+                  </View>
                   <Text style={styles.actionText}>Export Data</Text>
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
-                  style={[styles.actionButton, styles.logoutButton]}
+                  style={styles.actionButton}
                   onPress={handleLogout}
                 >
-                  <Ionicons name="log-out-outline" size={16} color="#DC2626" />
+                  <View style={[styles.actionIcon, { backgroundColor: '#EF444415' }]}>
+                    <Ionicons name="log-out-outline" size={18} color="#EF4444" />
+                  </View>
                   <Text style={[styles.actionText, styles.logoutText]}>Logout</Text>
                 </TouchableOpacity>
               </View>
@@ -733,7 +823,7 @@ const ProfileScreen = ({ navigation }) => {
         <View style={styles.bottomSpacing} />
       </ScrollView>
 
-      {/* Password Change Modal */}
+      {/* Enhanced Password Change Modal */}
       <Modal
         visible={showPasswordModal}
         animationType="slide"
@@ -742,12 +832,20 @@ const ProfileScreen = ({ navigation }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Change Password</Text>
-              <TouchableOpacity onPress={() => setShowPasswordModal(false)}>
-                <Ionicons name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
+            <LinearGradient
+              colors={['#4CAF50', '#388E3C']}
+              style={styles.modalHeader}
+            >
+              <View style={styles.modalHeaderContent}>
+                <Text style={styles.modalTitle}>Change Password</Text>
+                <TouchableOpacity 
+                  style={styles.modalCloseButton}
+                  onPress={() => setShowPasswordModal(false)}
+                >
+                  <Ionicons name="close" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
             
             <ScrollView style={styles.modalContent}>
               <View style={styles.modalIllustration}>
@@ -757,41 +855,23 @@ const ProfileScreen = ({ navigation }) => {
                 <Text style={styles.modalSubtitle}>Create a strong, unique password</Text>
               </View>
 
-              <View style={styles.modalInputGroup}>
-                <Text style={styles.modalInputLabel}>Current Password</Text>
-                <TextInput
-                  style={styles.modalTextInput}
-                  value={passwordData.currentPassword}
-                  onChangeText={(value) => setPasswordData(prev => ({ ...prev, currentPassword: value }))}
-                  secureTextEntry
-                  placeholder="Enter current password"
-                  placeholderTextColor="#9CA3AF"
-                />
-              </View>
-
-              <View style={styles.modalInputGroup}>
-                <Text style={styles.modalInputLabel}>New Password</Text>
-                <TextInput
-                  style={styles.modalTextInput}
-                  value={passwordData.newPassword}
-                  onChangeText={(value) => setPasswordData(prev => ({ ...prev, newPassword: value }))}
-                  secureTextEntry
-                  placeholder="Enter new password"
-                  placeholderTextColor="#9CA3AF"
-                />
-              </View>
-
-              <View style={styles.modalInputGroup}>
-                <Text style={styles.modalInputLabel}>Confirm New Password</Text>
-                <TextInput
-                  style={styles.modalTextInput}
-                  value={passwordData.confirmPassword}
-                  onChangeText={(value) => setPasswordData(prev => ({ ...prev, confirmPassword: value }))}
-                  secureTextEntry
-                  placeholder="Confirm new password"
-                  placeholderTextColor="#9CA3AF"
-                />
-              </View>
+              {[
+                { label: "Current Password", value: passwordData.currentPassword, key: 'currentPassword' },
+                { label: "New Password", value: passwordData.newPassword, key: 'newPassword' },
+                { label: "Confirm New Password", value: passwordData.confirmPassword, key: 'confirmPassword' },
+              ].map((field, index) => (
+                <View key={field.key} style={styles.modalInputGroup}>
+                  <Text style={styles.modalInputLabel}>{field.label}</Text>
+                  <TextInput
+                    style={styles.modalTextInput}
+                    value={field.value}
+                    onChangeText={(value) => setPasswordData(prev => ({ ...prev, [field.key]: value }))}
+                    secureTextEntry
+                    placeholder={`Enter ${field.label.toLowerCase()}`}
+                    placeholderTextColor="#9CA3AF"
+                  />
+                </View>
+              ))}
 
               <TouchableOpacity
                 style={styles.modalButton}
@@ -801,9 +881,16 @@ const ProfileScreen = ({ navigation }) => {
                 <LinearGradient
                   colors={['#4CAF50', '#45a049']}
                   style={styles.modalButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
                 >
+                  {isLoading ? (
+                    <Ionicons name="refresh" size={20} color="#FFFFFF" />
+                  ) : (
+                    <Ionicons name="key" size={20} color="#FFFFFF" />
+                  )}
                   <Text style={styles.modalButtonText}>
-                    {isLoading ? 'Updating Password...' : 'Update Password'}
+                    {isLoading ? 'Updating...' : 'Update Password'}
                   </Text>
                 </LinearGradient>
               </TouchableOpacity>
@@ -828,6 +915,17 @@ const styles = StyleSheet.create({
     zIndex: 1000,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingBottom: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   headerContent: {
     flexDirection: 'row',
@@ -839,25 +937,26 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
     color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
   editButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  editIcon: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
+  editButtonActive: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
   },
   scrollView: {
     flex: 1,
@@ -865,6 +964,41 @@ const styles = StyleSheet.create({
   heroSection: {
     paddingTop: Platform.OS === 'ios' ? 100 : 80,
     paddingBottom: 32,
+    overflow: 'hidden',
+  },
+  heroBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  circle1: {
+    position: 'absolute',
+    top: -50,
+    right: -50,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  circle2: {
+    position: 'absolute',
+    bottom: -80,
+    left: -80,
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  circle3: {
+    position: 'absolute',
+    top: '30%',
+    right: '20%',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   heroContent: {
     paddingHorizontal: 20,
@@ -880,9 +1014,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   avatarGradient: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
+    width: 90,
+    height: 90,
+    borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
@@ -906,20 +1040,33 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 2,
     right: 2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: '#10B981',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  roleBadge: {
+    position: 'absolute',
+    top: -5,
+    left: -5,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 2,
     borderColor: '#FFFFFF',
   },
   verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(16, 185, 129, 0.3)',
   },
@@ -933,34 +1080,41 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   userName: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  roleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 4,
   },
   userRole: {
     fontSize: 16,
     color: '#E8F5E8',
-    marginBottom: 2,
+    marginLeft: 6,
+    fontWeight: '500',
   },
   userCompany: {
     fontSize: 14,
     color: '#C8E6C9',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 16,
+    padding: 16,
+    backdropFilter: 'blur(10px)',
   },
   statMini: {
     flex: 1,
     alignItems: 'center',
   },
   statMiniValue: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 2,
@@ -968,21 +1122,38 @@ const styles = StyleSheet.create({
   statMiniLabel: {
     fontSize: 12,
     color: '#E8F5E8',
+    fontWeight: '500',
   },
   statDivider: {
     width: 1,
-    height: 24,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    height: 30,
+    backgroundColor: 'rgba(255,255,255,0.3)',
   },
   statsSection: {
     padding: 20,
     backgroundColor: '#FFFFFF',
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    letterSpacing: 0.5,
+  },
+  seeAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  seeAllText: {
+    fontSize: 14,
+    color: '#4CAF50',
+    fontWeight: '600',
+    marginRight: 2,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -991,48 +1162,59 @@ const styles = StyleSheet.create({
   },
   statCard: {
     width: (width - 48) / 2,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#F3F4F6',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
-  statHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  statIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
   },
-  statIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#E8F5E8',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   statIcon: {
-    fontSize: 16,
+    fontSize: 18,
   },
   trendIndicator: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 8,
   },
   trendText: {
     fontSize: 10,
     fontWeight: '600',
     color: '#FFFFFF',
+    marginLeft: 2,
   },
   statValue: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#111827',
     marginBottom: 4,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#6B7280',
     fontWeight: '500',
   },
@@ -1040,51 +1222,68 @@ const styles = StyleSheet.create({
   productsScroll: {
     marginHorizontal: -20,
   },
+  productsContainer: {
+    paddingHorizontal: 20,
+  },
   productCard: {
-    width: width * 0.75,
+    width: width * 0.7,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginHorizontal: 8,
+    borderRadius: 20,
+    marginRight: 16,
     borderWidth: 1,
     borderColor: '#F3F4F6',
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowRadius: 12,
       },
       android: {
-        elevation: 3,
+        elevation: 6,
       },
     }),
   },
-  productHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
+  productImageContainer: {
+    position: 'relative',
+    height: 120,
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  productImageText: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  statusBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  productContent: {
+    padding: 16,
   },
   productName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#111827',
-    flex: 1,
-    marginRight: 8,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#FFFFFF',
+    marginBottom: 4,
   },
   productDescription: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#6B7280',
     marginBottom: 12,
     lineHeight: 18,
@@ -1096,24 +1295,27 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   productPrice: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#4CAF50',
   },
   productCategory: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#6B7280',
     backgroundColor: '#F3F4F6',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
+    fontWeight: '500',
   },
   certifications: {
-    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   certificationsText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#6B7280',
+    marginLeft: 4,
     fontStyle: 'italic',
   },
   tabContainer: {
@@ -1122,6 +1324,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   tabButton: {
     flex: 1,
@@ -1129,8 +1342,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'relative',
   },
+  tabIcon: {
+    marginBottom: 4,
+  },
   tabText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
     color: '#6B7280',
   },
@@ -1153,6 +1369,20 @@ const styles = StyleSheet.create({
   section: {
     padding: 20,
   },
+  editIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  editIndicatorText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+    marginLeft: 4,
+  },
   formContainer: {
     // No background, using cards instead
   },
@@ -1164,21 +1394,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  inputIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
   inputLabel: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#374151',
-    marginLeft: 8,
   },
   textInput: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#F3F4F6',
+    borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 16,
     fontSize: 16,
     color: '#111827',
     backgroundColor: '#FFFFFF',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   textInputReadonly: {
     backgroundColor: '#F9FAFB',
@@ -1186,7 +1435,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   saveButton: {
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
     marginTop: 8,
     ...Platform.select({
@@ -1202,25 +1451,30 @@ const styles = StyleSheet.create({
     }),
   },
   saveButtonGradient: {
-    paddingVertical: 16,
+    paddingVertical: 18,
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   saveButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+    marginLeft: 8,
   },
   settingsContainer: {
     backgroundColor: '#F9FAFB',
-    borderRadius: 12,
+    borderRadius: 20,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
   },
   settingItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
@@ -1230,22 +1484,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: '#E8F5E8',
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   settingTextContainer: {
     flex: 1,
   },
   settingTitle: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#111827',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   settingDescription: {
     fontSize: 14,
@@ -1257,14 +1510,16 @@ const styles = StyleSheet.create({
   },
   securityContainer: {
     backgroundColor: '#F9FAFB',
-    borderRadius: 12,
+    borderRadius: 20,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
   },
   securityItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
@@ -1274,19 +1529,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   securityIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: '#E8F5E8',
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   securityTitle: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#111827',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   securityDescription: {
     fontSize: 14,
@@ -1295,31 +1549,34 @@ const styles = StyleSheet.create({
   actionsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: 12,
   },
   actionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
+    padding: 20,
     backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    marginHorizontal: 4,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#F3F4F6',
   },
-  logoutButton: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
+  actionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
   },
   actionText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#374151',
-    marginLeft: 8,
   },
   logoutText: {
-    color: '#DC2626',
+    color: '#EF4444',
   },
   modalOverlay: {
     flex: 1,
@@ -1328,23 +1585,34 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     maxHeight: '90%',
   },
   modalHeader: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
+  },
+  modalHeaderContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    paddingVertical: 20,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  modalCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalContent: {
     padding: 20,
@@ -1366,40 +1634,44 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6B7280',
     textAlign: 'center',
+    fontWeight: '500',
   },
   modalInputGroup: {
     marginBottom: 20,
   },
   modalInputLabel: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#374151',
     marginBottom: 8,
   },
   modalTextInput: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#F3F4F6',
+    borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 16,
     fontSize: 16,
     color: '#111827',
     backgroundColor: '#FFFFFF',
   },
   modalButton: {
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
     marginTop: 8,
   },
   modalButtonGradient: {
-    paddingVertical: 16,
+    paddingVertical: 18,
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   modalButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+    marginLeft: 8,
   },
   bottomSpacing: {
     height: 20,
