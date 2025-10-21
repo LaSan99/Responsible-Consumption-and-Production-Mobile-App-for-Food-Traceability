@@ -33,6 +33,7 @@ const Product = {
               COALESCE(p.origin, '') as origin, 
               COALESCE(p.harvest_date, '') as harvest_date, 
               COALESCE(p.expiry_date, '') as expiry_date, 
+              COALESCE(p.location, '') as location,
               u.full_name AS created_by_name
        FROM products p
        JOIN users u ON p.created_by = u.id`,
@@ -41,7 +42,7 @@ const Product = {
           // If error due to missing columns, try with basic columns only
           if (err.code === 'ER_BAD_FIELD_ERROR') {
             db.query(
-              `SELECT p.id, p.name, p.batch_code, p.description, u.full_name AS created_by_name
+              `SELECT p.id, p.name, p.batch_code, p.location,p.description, u.full_name AS created_by_name
                FROM products p
                JOIN users u ON p.created_by = u.id`,
               callback

@@ -13,6 +13,7 @@ import {
   Switch,
   Modal,
   Animated,
+  RefreshControl,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -29,19 +30,31 @@ const ProfileScreen = ({ navigation }) => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
   const [products, setProducts] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const headerScroll = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loadUserData();
-    loadProducerProducts();
+    if (user?.role === 'producer') {
+      loadProducerProducts();
+    }
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 600,
       useNativeDriver: true,
     }).start();
-  }, []);
+  }, [user?.role]);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await loadUserData();
+    if (user?.role === 'producer') {
+      await loadProducerProducts();
+    }
+    setRefreshing(false);
+  }, [user?.role]);
 
   const headerOpacity = headerScroll.interpolate({
     inputRange: [0, 100],
@@ -55,8 +68,8 @@ const ProfileScreen = ({ navigation }) => {
     phone: '',
     address: '',
     company: '',
-    role: 'Producer',
-    department: 'Agriculture',
+    role: '',
+    department: '',
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -85,9 +98,9 @@ const ProfileScreen = ({ navigation }) => {
           email: userObj.email || '',
           phone: userObj.phone || '',
           address: userObj.address || '',
-          company: userObj.company || 'Agricultural Producer',
-          role: userObj.role || 'Producer',
-          department: userObj.department || 'Agriculture',
+          company: userObj.company || (userObj.role === 'producer' ? 'Agricultural Producer' : 'Consumer'),
+          role: userObj.role || 'consumer',
+          department: userObj.department || (userObj.role === 'producer' ? 'Agriculture' : 'General'),
         });
       }
     } catch (error) {
@@ -211,8 +224,8 @@ const ProfileScreen = ({ navigation }) => {
     headerScroll.setValue(scrollY);
   };
 
-  // Calculate real stats from products
-  const getRealStats = () => {
+  // Calculate real stats from products for producer
+  const getProducerStats = () => {
     const totalProducts = products.length;
     const activeProducts = products.filter(p => p.status === 'active').length;
     const certifiedProducts = products.filter(p => p.certifications && p.certifications.length > 0).length;
@@ -227,7 +240,17 @@ const ProfileScreen = ({ navigation }) => {
     };
   };
 
-  const stats = getRealStats();
+  // Consumer stats
+  const getConsumerStats = () => {
+    return {
+      ordersCompleted: 12,
+      favoriteProducts: 8,
+      satisfactionRate: 95,
+      reviewsWritten: 6,
+    };
+  };
+
+  const stats = user?.role === 'producer' ? getProducerStats() : getConsumerStats();
 
   const ProfessionalStatCard = ({ icon, value, label, trend }) => (
     <View style={styles.statCard}>
@@ -245,6 +268,32 @@ const ProfileScreen = ({ navigation }) => {
       </View>
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+
+  const ProductCard = ({ product }) => (
+    <View style={styles.productCard}>
+      <View style={styles.productHeader}>
+        <Text style={styles.productName}>{product.name}</Text>
+        <View style={[styles.statusBadge, 
+          { backgroundColor: product.status === 'active' ? '#10B981' : '#6B7280' }]}>
+          <Text style={styles.statusText}>{product.status}</Text>
+        </View>
+      </View>
+      <Text style={styles.productDescription} numberOfLines={2}>
+        {product.description}
+      </Text>
+      <View style={styles.productDetails}>
+        <Text style={styles.productPrice}>${product.price}</Text>
+        <Text style={styles.productCategory}>{product.category}</Text>
+      </View>
+      {product.certifications && product.certifications.length > 0 && (
+        <View style={styles.certifications}>
+          <Text style={styles.certificationsText}>
+            Certifications: {product.certifications.join(', ')}
+          </Text>
+        </View>
+      )}
     </View>
   );
 
@@ -287,13 +336,35 @@ const ProfileScreen = ({ navigation }) => {
   );
 
   const getInitials = (name) => {
-    if (!name) return 'P';
+    if (!name) return user?.role === 'producer' ? 'P' : 'C';
     return name
       .split(' ')
       .map(word => word.charAt(0))
       .join('')
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  const getRoleDisplayName = (role) => {
+    return role === 'producer' ? 'Producer' : 'Consumer';
+  };
+
+  const getRoleSpecificStats = () => {
+    if (user?.role === 'producer') {
+      return [
+        { icon: "🌱", value: stats.projectsCompleted, label: "Total Products" },
+        { icon: "✅", value: stats.activeProducts, label: "Active Products" },
+        { icon: "📜", value: stats.certifiedProducts, label: "Certified Products" },
+        { icon: "⭐", value: `${stats.satisfactionRate}%`, label: "Active Rate" },
+      ];
+    } else {
+      return [
+        { icon: "🛒", value: stats.ordersCompleted, label: "Orders Completed" },
+        { icon: "❤️", value: stats.favoriteProducts, label: "Favorite Products" },
+        { icon: "⭐", value: `${stats.satisfactionRate}%`, label: "Satisfaction Rate" },
+        { icon: "📝", value: stats.reviewsWritten, label: "Reviews Written" },
+      ];
+    }
   };
 
   return (
@@ -328,6 +399,9 @@ const ProfileScreen = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
         onScroll={handleScroll}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
         {/* Profile Hero Section */}
         <LinearGradient
@@ -349,30 +423,53 @@ const ProfileScreen = ({ navigation }) => {
               </View>
               <View style={styles.verifiedBadge}>
                 <Ionicons name="checkmark-circle" size={12} color="#10B981" />
-                <Text style={styles.verifiedText}>Verified Producer</Text>
+                <Text style={styles.verifiedText}>
+                  Verified {getRoleDisplayName(user?.role)}
+                </Text>
               </View>
             </View>
             
             <View style={styles.profileInfo}>
-              <Text style={styles.userName}>{user?.full_name || 'Producer'}</Text>
-              <Text style={styles.userRole}>{profileData.role}</Text>
+              <Text style={styles.userName}>{user?.full_name || getRoleDisplayName(user?.role)}</Text>
+              <Text style={styles.userRole}>{getRoleDisplayName(user?.role)}</Text>
               <Text style={styles.userCompany}>{profileData.company}</Text>
               
               <View style={styles.statsRow}>
-                <View style={styles.statMini}>
-                  <Text style={styles.statMiniValue}>{stats.projectsCompleted}</Text>
-                  <Text style={styles.statMiniLabel}>Products</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statMini}>
-                  <Text style={styles.statMiniValue}>{stats.activeProducts}</Text>
-                  <Text style={styles.statMiniLabel}>Active</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statMini}>
-                  <Text style={styles.statMiniValue}>{stats.certifiedProducts}</Text>
-                  <Text style={styles.statMiniLabel}>Certified</Text>
-                </View>
+                {user?.role === 'producer' ? (
+                  <>
+                    <View style={styles.statMini}>
+                      <Text style={styles.statMiniValue}>{stats.projectsCompleted}</Text>
+                      <Text style={styles.statMiniLabel}>Products</Text>
+                    </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statMini}>
+                      <Text style={styles.statMiniValue}>{stats.activeProducts}</Text>
+                      <Text style={styles.statMiniLabel}>Active</Text>
+                    </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statMini}>
+                      <Text style={styles.statMiniValue}>{stats.certifiedProducts}</Text>
+                      <Text style={styles.statMiniLabel}>Certified</Text>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.statMini}>
+                      <Text style={styles.statMiniValue}>{stats.ordersCompleted}</Text>
+                      <Text style={styles.statMiniLabel}>Orders</Text>
+                    </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statMini}>
+                      <Text style={styles.statMiniValue}>{stats.favoriteProducts}</Text>
+                      <Text style={styles.statMiniLabel}>Favorites</Text>
+                    </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statMini}>
+                      <Text style={styles.statMiniValue}>{stats.reviewsWritten}</Text>
+                      <Text style={styles.statMiniLabel}>Reviews</Text>
+                    </View>
+                  </>
+                )}
               </View>
             </View>
           </View>
@@ -380,30 +477,36 @@ const ProfileScreen = ({ navigation }) => {
 
         {/* Stats Overview */}
         <View style={styles.statsSection}>
-          <Text style={styles.sectionTitle}>Farm Overview</Text>
+          <Text style={styles.sectionTitle}>
+            {user?.role === 'producer' ? 'Farm Overview' : 'Shopping Overview'}
+          </Text>
           <View style={styles.statsGrid}>
-            <ProfessionalStatCard 
-              icon="🌱" 
-              value={stats.projectsCompleted} 
-              label="Total Products"
-            />
-            <ProfessionalStatCard 
-              icon="✅" 
-              value={stats.activeProducts} 
-              label="Active Products"
-            />
-            <ProfessionalStatCard 
-              icon="📜" 
-              value={stats.certifiedProducts} 
-              label="Certified Products"
-            />
-            <ProfessionalStatCard 
-              icon="⭐" 
-              value={`${stats.satisfactionRate}%`} 
-              label="Active Rate"
-            />
+            {getRoleSpecificStats().map((stat, index) => (
+              <ProfessionalStatCard 
+                key={index}
+                icon={stat.icon} 
+                value={stat.value} 
+                label={stat.label}
+              />
+            ))}
           </View>
         </View>
+
+        {/* Products Section for Producer */}
+        {user?.role === 'producer' && products.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>My Products</Text>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.productsScroll}
+            >
+              {products.map((product, index) => (
+                <ProductCard key={product._id || index} product={product} />
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Tab Navigation */}
         <View style={styles.tabContainer}>
@@ -428,7 +531,9 @@ const ProfileScreen = ({ navigation }) => {
         {activeTab === 'profile' && (
           <Animated.View style={[styles.tabContent, { opacity: fadeAnim }]}>
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Producer Information</Text>
+              <Text style={styles.sectionTitle}>
+                {user?.role === 'producer' ? 'Producer Information' : 'Consumer Information'}
+              </Text>
               <View style={styles.formContainer}>
                 <View style={styles.inputGroup}>
                   <View style={styles.inputLabelRow}>
@@ -478,7 +583,9 @@ const ProfileScreen = ({ navigation }) => {
                 <View style={styles.inputGroup}>
                   <View style={styles.inputLabelRow}>
                     <Ionicons name="business-outline" size={16} color="#6B7280" />
-                    <Text style={styles.inputLabel}>Farm/Business Name</Text>
+                    <Text style={styles.inputLabel}>
+                      {user?.role === 'producer' ? 'Farm/Business Name' : 'Organization (Optional)'}
+                    </Text>
                   </View>
                   <TextInput
                     style={[styles.textInput, !isEditing && styles.textInputReadonly]}
@@ -492,7 +599,9 @@ const ProfileScreen = ({ navigation }) => {
                 <View style={styles.inputGroup}>
                   <View style={styles.inputLabelRow}>
                     <Ionicons name="location-outline" size={16} color="#6B7280" />
-                    <Text style={styles.inputLabel}>Farm Address</Text>
+                    <Text style={styles.inputLabel}>
+                      {user?.role === 'producer' ? 'Farm Address' : 'Delivery Address'}
+                    </Text>
                   </View>
                   <TextInput
                     style={[styles.textInput, !isEditing && styles.textInputReadonly]}
@@ -534,7 +643,7 @@ const ProfileScreen = ({ navigation }) => {
                 <SettingItem
                   icon="notifications-outline"
                   title="Push Notifications"
-                  description="Get instant notifications about your products"
+                  description={`Get instant notifications about ${user?.role === 'producer' ? 'your products' : 'your orders'}`}
                   value={preferences.pushNotifications}
                   onValueChange={(value) => setPreferences(prev => ({ ...prev, pushNotifications: value }))}
                 />
@@ -548,7 +657,7 @@ const ProfileScreen = ({ navigation }) => {
                 <SettingItem
                   icon="cloud-upload-outline"
                   title="Auto Sync"
-                  description="Automatically sync your product data"
+                  description={`Automatically sync your ${user?.role === 'producer' ? 'product' : 'order'} data`}
                   value={preferences.autoSync}
                   onValueChange={(value) => setPreferences(prev => ({ ...prev, autoSync: value }))}
                 />
@@ -705,9 +814,6 @@ const ProfileScreen = ({ navigation }) => {
     </View>
   );
 };
-
-// ... (Keep all the styles from the previous code, they are correct)
-// Make sure to copy all the StyleSheet.create styles from the previous response
 
 const styles = StyleSheet.create({
   container: {
@@ -929,6 +1035,86 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
     fontWeight: '500',
+  },
+  // Product Card Styles
+  productsScroll: {
+    marginHorizontal: -20,
+  },
+  productCard: {
+    width: width * 0.75,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 8,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  productHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  productName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    flex: 1,
+    marginRight: 8,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#FFFFFF',
+  },
+  productDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  productDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  productPrice: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#4CAF50',
+  },
+  productCategory: {
+    fontSize: 12,
+    color: '#6B7280',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  certifications: {
+    marginTop: 8,
+  },
+  certificationsText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontStyle: 'italic',
   },
   tabContainer: {
     flexDirection: 'row',
