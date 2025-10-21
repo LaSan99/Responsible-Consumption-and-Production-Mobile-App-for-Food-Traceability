@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,6 @@ import {
   StatusBar,
   Platform,
   Alert,
-  SafeAreaView,
   Dimensions,
   Switch,
   Modal,
@@ -17,6 +16,9 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import axios from 'axios';
+import apiConfig from '../config/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -26,12 +28,14 @@ const ProfileScreen = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
+  const [products, setProducts] = useState([]);
 
-  const fadeAnim = useState(new Animated.Value(0))[0];
-  const headerScroll = useState(new Animated.Value(0))[0];
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const headerScroll = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loadUserData();
+    loadProducerProducts();
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 600,
@@ -46,13 +50,13 @@ const ProfileScreen = ({ navigation }) => {
   });
 
   const [profileData, setProfileData] = useState({
-    full_name: 'Alexandra Chen',
-    email: 'alexandra.chen@company.com',
-    phone: '+1 (555) 123-4567',
-    address: '123 Business Ave, Suite 400',
-    company: 'TechCorp Inc.',
-    role: 'Senior Product Manager',
-    department: 'Product & Design',
+    full_name: '',
+    email: '',
+    phone: '',
+    address: '',
+    company: '',
+    role: 'Producer',
+    department: 'Agriculture',
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -70,53 +74,160 @@ const ProfileScreen = ({ navigation }) => {
     autoSync: true,
   });
 
-  const [stats, setStats] = useState({
-    projectsCompleted: 24,
-    teamMembers: 8,
-    satisfactionRate: 96,
-    tasksCompleted: 187,
-  });
-
   const loadUserData = async () => {
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setUser(profileData);
+      const userData = await AsyncStorage.getItem('user');
+      if (userData) {
+        const userObj = JSON.parse(userData);
+        setUser(userObj);
+        setProfileData({
+          full_name: userObj.full_name || '',
+          email: userObj.email || '',
+          phone: userObj.phone || '',
+          address: userObj.address || '',
+          company: userObj.company || 'Agricultural Producer',
+          role: userObj.role || 'Producer',
+          department: userObj.department || 'Agriculture',
+        });
+      }
     } catch (error) {
       console.error('Error loading user data:', error);
+    }
+  };
+
+  const loadProducerProducts = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const response = await axios.get(`${apiConfig.baseURL}/products/producer/my-products`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setProducts(response.data);
+    } catch (error) {
+      console.error('Error loading producer products:', error);
     }
   };
 
   const handleSaveProfile = async () => {
     setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const token = await AsyncStorage.getItem('token');
+      
+      // Prepare update data
+      const updateData = {
+        full_name: profileData.full_name,
+        email: profileData.email,
+        phone: profileData.phone,
+        address: profileData.address,
+        company: profileData.company,
+      };
+
+      // Make API call to update profile
+      const response = await axios.put(
+        `${apiConfig.baseURL}/auth/profile`,
+        updateData,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      // Update local storage
+      const updatedUser = { ...user, ...updateData };
+      await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+
       setIsEditing(false);
       Alert.alert('Success', 'Profile updated successfully');
     } catch (error) {
-      Alert.alert('Error', 'Failed to update profile');
+      console.error('Error updating profile:', error);
+      Alert.alert('Error', 'Failed to update profile. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleChangePassword = async () => {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      Alert.alert('Error', 'New passwords do not match');
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters long');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const token = await AsyncStorage.getItem('token');
+      
+      const passwordUpdateData = {
+        current_password: passwordData.currentPassword,
+        new_password: passwordData.newPassword,
+        confirm_password: passwordData.confirmPassword,
+      };
+
+      await axios.put(
+        `${apiConfig.baseURL}/auth/change-password`,
+        passwordUpdateData,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
       setShowPasswordModal(false);
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       Alert.alert('Success', 'Password changed successfully');
     } catch (error) {
-      Alert.alert('Error', 'Failed to change password');
+      console.error('Error changing password:', error);
+      Alert.alert('Error', 'Failed to change password. Please check your current password.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleLogout = async () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            await AsyncStorage.multiRemove(['token', 'user']);
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Login' }],
+            });
+          },
+        },
+      ]
+    );
   };
 
   const handleScroll = (event) => {
     const scrollY = event.nativeEvent.contentOffset.y;
     headerScroll.setValue(scrollY);
   };
+
+  // Calculate real stats from products
+  const getRealStats = () => {
+    const totalProducts = products.length;
+    const activeProducts = products.filter(p => p.status === 'active').length;
+    const certifiedProducts = products.filter(p => p.certifications && p.certifications.length > 0).length;
+    
+    return {
+      projectsCompleted: totalProducts,
+      teamMembers: 1, // Single producer for now
+      satisfactionRate: totalProducts > 0 ? Math.round((activeProducts / totalProducts) * 100) : 0,
+      tasksCompleted: totalProducts * 3, // Assuming 3 tasks per product
+      activeProducts: activeProducts,
+      certifiedProducts: certifiedProducts,
+    };
+  };
+
+  const stats = getRealStats();
 
   const ProfessionalStatCard = ({ icon, value, label, trend }) => (
     <View style={styles.statCard}>
@@ -141,7 +252,7 @@ const ProfileScreen = ({ navigation }) => {
     <View style={styles.settingItem}>
       <View style={styles.settingLeft}>
         <View style={styles.settingIconContainer}>
-          <Text style={styles.settingIcon}>{icon}</Text>
+          <Ionicons name={icon} size={20} color="#3B82F6" />
         </View>
         <View style={styles.settingTextContainer}>
           <Text style={styles.settingTitle}>{title}</Text>
@@ -152,12 +263,12 @@ const ProfileScreen = ({ navigation }) => {
         <Switch
           value={value}
           onValueChange={onValueChange}
-          trackColor={{ false: '#E5E7EB', true: '#3B82F6' }}
+          trackColor={{ false: '#E5E7EB', true: '#4CAF50' }}
           thumbColor="#FFFFFF"
         />
       ) : (
         <TouchableOpacity style={styles.arrowButton}>
-          <Text style={styles.arrowIcon}>›</Text>
+          <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
         </TouchableOpacity>
       )}
     </View>
@@ -175,14 +286,24 @@ const ProfileScreen = ({ navigation }) => {
     </TouchableOpacity>
   );
 
+  const getInitials = (name) => {
+    if (!name) return 'P';
+    return name
+      .split(' ')
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1F2937" />
+      <StatusBar barStyle="light-content" backgroundColor="#4CAF50" />
       
       {/* Header */}
       <Animated.View style={[styles.header, { opacity: headerOpacity }]}>
         <LinearGradient
-          colors={['#1F2937', '#374151']}
+          colors={['#4CAF50', '#388E3C']}
           style={StyleSheet.absoluteFill}
         />
         <View style={styles.headerContent}>
@@ -190,7 +311,7 @@ const ProfileScreen = ({ navigation }) => {
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.backIcon}>←</Text>
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Profile</Text>
           <TouchableOpacity 
@@ -210,47 +331,47 @@ const ProfileScreen = ({ navigation }) => {
       >
         {/* Profile Hero Section */}
         <LinearGradient
-          colors={['#1F2937', '#374151']}
+          colors={['#4CAF50', '#388E3C']}
           style={styles.heroSection}
         >
           <View style={styles.heroContent}>
             <View style={styles.avatarSection}>
               <View style={styles.avatarContainer}>
                 <LinearGradient
-                  colors={['#6366F1', '#8B5CF6']}
+                  colors={['#4CAF50', '#45a049']}
                   style={styles.avatarGradient}
                 >
                   <Text style={styles.avatarText}>
-                    {user?.full_name?.charAt(0) || 'A'}
+                    {getInitials(user?.full_name)}
                   </Text>
                 </LinearGradient>
                 <View style={styles.statusIndicator} />
               </View>
               <View style={styles.verifiedBadge}>
-                <Text style={styles.verifiedIcon}>✓</Text>
-                <Text style={styles.verifiedText}>Verified</Text>
+                <Ionicons name="checkmark-circle" size={12} color="#10B981" />
+                <Text style={styles.verifiedText}>Verified Producer</Text>
               </View>
             </View>
             
             <View style={styles.profileInfo}>
-              <Text style={styles.userName}>{user?.full_name || 'Alexandra Chen'}</Text>
-              <Text style={styles.userRole}>{user?.role || 'Senior Product Manager'}</Text>
-              <Text style={styles.userCompany}>{user?.company || 'TechCorp Inc.'}</Text>
+              <Text style={styles.userName}>{user?.full_name || 'Producer'}</Text>
+              <Text style={styles.userRole}>{profileData.role}</Text>
+              <Text style={styles.userCompany}>{profileData.company}</Text>
               
               <View style={styles.statsRow}>
                 <View style={styles.statMini}>
                   <Text style={styles.statMiniValue}>{stats.projectsCompleted}</Text>
-                  <Text style={styles.statMiniLabel}>Projects</Text>
+                  <Text style={styles.statMiniLabel}>Products</Text>
                 </View>
                 <View style={styles.statDivider} />
                 <View style={styles.statMini}>
-                  <Text style={styles.statMiniValue}>{stats.teamMembers}</Text>
-                  <Text style={styles.statMiniLabel}>Team</Text>
+                  <Text style={styles.statMiniValue}>{stats.activeProducts}</Text>
+                  <Text style={styles.statMiniLabel}>Active</Text>
                 </View>
                 <View style={styles.statDivider} />
                 <View style={styles.statMini}>
-                  <Text style={styles.statMiniValue}>{stats.satisfactionRate}%</Text>
-                  <Text style={styles.statMiniLabel}>Satisfaction</Text>
+                  <Text style={styles.statMiniValue}>{stats.certifiedProducts}</Text>
+                  <Text style={styles.statMiniLabel}>Certified</Text>
                 </View>
               </View>
             </View>
@@ -259,31 +380,27 @@ const ProfileScreen = ({ navigation }) => {
 
         {/* Stats Overview */}
         <View style={styles.statsSection}>
-          <Text style={styles.sectionTitle}>Performance Overview</Text>
+          <Text style={styles.sectionTitle}>Farm Overview</Text>
           <View style={styles.statsGrid}>
             <ProfessionalStatCard 
-              icon="📊" 
+              icon="🌱" 
               value={stats.projectsCompleted} 
-              label="Projects Completed"
-              trend={12}
+              label="Total Products"
             />
             <ProfessionalStatCard 
-              icon="👥" 
-              value={stats.teamMembers} 
-              label="Team Members"
-              trend={5}
+              icon="✅" 
+              value={stats.activeProducts} 
+              label="Active Products"
+            />
+            <ProfessionalStatCard 
+              icon="📜" 
+              value={stats.certifiedProducts} 
+              label="Certified Products"
             />
             <ProfessionalStatCard 
               icon="⭐" 
               value={`${stats.satisfactionRate}%`} 
-              label="Satisfaction Rate"
-              trend={3}
-            />
-            <ProfessionalStatCard 
-              icon="✅" 
-              value={stats.tasksCompleted} 
-              label="Tasks Completed"
-              trend={8}
+              label="Active Rate"
             />
           </View>
         </View>
@@ -311,11 +428,11 @@ const ProfileScreen = ({ navigation }) => {
         {activeTab === 'profile' && (
           <Animated.View style={[styles.tabContent, { opacity: fadeAnim }]}>
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Personal Information</Text>
+              <Text style={styles.sectionTitle}>Producer Information</Text>
               <View style={styles.formContainer}>
                 <View style={styles.inputGroup}>
                   <View style={styles.inputLabelRow}>
-                    <Text style={styles.inputIcon}>👤</Text>
+                    <Ionicons name="person-outline" size={16} color="#6B7280" />
                     <Text style={styles.inputLabel}>Full Name</Text>
                   </View>
                   <TextInput
@@ -329,7 +446,7 @@ const ProfileScreen = ({ navigation }) => {
 
                 <View style={styles.inputGroup}>
                   <View style={styles.inputLabelRow}>
-                    <Text style={styles.inputIcon}>📧</Text>
+                    <Ionicons name="mail-outline" size={16} color="#6B7280" />
                     <Text style={styles.inputLabel}>Email Address</Text>
                   </View>
                   <TextInput
@@ -339,12 +456,13 @@ const ProfileScreen = ({ navigation }) => {
                     editable={isEditing}
                     placeholderTextColor="#9CA3AF"
                     keyboardType="email-address"
+                    autoCapitalize="none"
                   />
                 </View>
 
                 <View style={styles.inputGroup}>
                   <View style={styles.inputLabelRow}>
-                    <Text style={styles.inputIcon}>📱</Text>
+                    <Ionicons name="call-outline" size={16} color="#6B7280" />
                     <Text style={styles.inputLabel}>Phone Number</Text>
                   </View>
                   <TextInput
@@ -359,13 +477,13 @@ const ProfileScreen = ({ navigation }) => {
 
                 <View style={styles.inputGroup}>
                   <View style={styles.inputLabelRow}>
-                    <Text style={styles.inputIcon}>🏢</Text>
-                    <Text style={styles.inputLabel}>Department</Text>
+                    <Ionicons name="business-outline" size={16} color="#6B7280" />
+                    <Text style={styles.inputLabel}>Farm/Business Name</Text>
                   </View>
                   <TextInput
                     style={[styles.textInput, !isEditing && styles.textInputReadonly]}
-                    value={profileData.department}
-                    onChangeText={(value) => setProfileData(prev => ({ ...prev, department: value }))}
+                    value={profileData.company}
+                    onChangeText={(value) => setProfileData(prev => ({ ...prev, company: value }))}
                     editable={isEditing}
                     placeholderTextColor="#9CA3AF"
                   />
@@ -373,8 +491,8 @@ const ProfileScreen = ({ navigation }) => {
 
                 <View style={styles.inputGroup}>
                   <View style={styles.inputLabelRow}>
-                    <Text style={styles.inputIcon}>📍</Text>
-                    <Text style={styles.inputLabel}>Address</Text>
+                    <Ionicons name="location-outline" size={16} color="#6B7280" />
+                    <Text style={styles.inputLabel}>Farm Address</Text>
                   </View>
                   <TextInput
                     style={[styles.textInput, !isEditing && styles.textInputReadonly]}
@@ -382,6 +500,7 @@ const ProfileScreen = ({ navigation }) => {
                     onChangeText={(value) => setProfileData(prev => ({ ...prev, address: value }))}
                     editable={isEditing}
                     placeholderTextColor="#9CA3AF"
+                    multiline
                   />
                 </View>
               </View>
@@ -393,7 +512,7 @@ const ProfileScreen = ({ navigation }) => {
                   disabled={isLoading}
                 >
                   <LinearGradient
-                    colors={['#3B82F6', '#1D4ED8']}
+                    colors={['#4CAF50', '#45a049']}
                     style={styles.saveButtonGradient}
                   >
                     <Text style={styles.saveButtonText}>
@@ -413,46 +532,32 @@ const ProfileScreen = ({ navigation }) => {
               <Text style={styles.sectionTitle}>Preferences</Text>
               <View style={styles.settingsContainer}>
                 <SettingItem
-                  icon="🔒"
-                  title="Biometric Login"
-                  description="Use Face ID or Touch ID for faster access"
-                  value={preferences.biometricLogin}
-                  onValueChange={(value) => setPreferences(prev => ({ ...prev, biometricLogin: value }))}
+                  icon="notifications-outline"
+                  title="Push Notifications"
+                  description="Get instant notifications about your products"
+                  value={preferences.pushNotifications}
+                  onValueChange={(value) => setPreferences(prev => ({ ...prev, pushNotifications: value }))}
                 />
                 <SettingItem
-                  icon="🛡️"
-                  title="Two-Factor Authentication"
-                  description="Extra security for your account"
-                  value={preferences.twoFactorAuth}
-                  onValueChange={(value) => setPreferences(prev => ({ ...prev, twoFactorAuth: value }))}
-                />
-                <SettingItem
-                  icon="📧"
+                  icon="mail-outline"
                   title="Email Notifications"
                   description="Receive important updates via email"
                   value={preferences.emailNotifications}
                   onValueChange={(value) => setPreferences(prev => ({ ...prev, emailNotifications: value }))}
                 />
                 <SettingItem
-                  icon="🔔"
-                  title="Push Notifications"
-                  description="Get instant notifications on your device"
-                  value={preferences.pushNotifications}
-                  onValueChange={(value) => setPreferences(prev => ({ ...prev, pushNotifications: value }))}
+                  icon="cloud-upload-outline"
+                  title="Auto Sync"
+                  description="Automatically sync your product data"
+                  value={preferences.autoSync}
+                  onValueChange={(value) => setPreferences(prev => ({ ...prev, autoSync: value }))}
                 />
                 <SettingItem
-                  icon="🌙"
+                  icon="moon-outline"
                   title="Dark Mode"
                   description="Switch to dark theme"
                   value={preferences.darkMode}
                   onValueChange={(value) => setPreferences(prev => ({ ...prev, darkMode: value }))}
-                />
-                <SettingItem
-                  icon="🔄"
-                  title="Auto Sync"
-                  description="Automatically sync your data"
-                  value={preferences.autoSync}
-                  onValueChange={(value) => setPreferences(prev => ({ ...prev, autoSync: value }))}
                 />
               </View>
             </View>
@@ -471,40 +576,27 @@ const ProfileScreen = ({ navigation }) => {
                 >
                   <View style={styles.securityLeft}>
                     <View style={styles.securityIconContainer}>
-                      <Text style={styles.securityIcon}>🔑</Text>
+                      <Ionicons name="key-outline" size={20} color="#4CAF50" />
                     </View>
                     <View>
                       <Text style={styles.securityTitle}>Change Password</Text>
                       <Text style={styles.securityDescription}>Update your password regularly</Text>
                     </View>
                   </View>
-                  <Text style={styles.arrowIcon}>›</Text>
+                  <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.securityItem}>
                   <View style={styles.securityLeft}>
                     <View style={styles.securityIconContainer}>
-                      <Text style={styles.securityIcon}>👁️</Text>
+                      <Ionicons name="shield-checkmark-outline" size={20} color="#4CAF50" />
                     </View>
                     <View>
                       <Text style={styles.securityTitle}>Privacy Settings</Text>
                       <Text style={styles.securityDescription}>Manage your data privacy</Text>
                     </View>
                   </View>
-                  <Text style={styles.arrowIcon}>›</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.securityItem}>
-                  <View style={styles.securityLeft}>
-                    <View style={styles.securityIconContainer}>
-                      <Text style={styles.securityIcon}>📱</Text>
-                    </View>
-                    <View>
-                      <Text style={styles.securityTitle}>Device Management</Text>
-                      <Text style={styles.securityDescription}>Manage connected devices</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.arrowIcon}>›</Text>
+                  <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -513,26 +605,15 @@ const ProfileScreen = ({ navigation }) => {
               <Text style={styles.sectionTitle}>Account Actions</Text>
               <View style={styles.actionsContainer}>
                 <TouchableOpacity style={styles.actionButton}>
-                  <Text style={styles.actionIcon}>📥</Text>
+                  <Ionicons name="download-outline" size={16} color="#374151" />
                   <Text style={styles.actionText}>Export Data</Text>
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
                   style={[styles.actionButton, styles.logoutButton]}
-                  onPress={() => Alert.alert(
-                    'Logout', 
-                    'Are you sure you want to logout?',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { 
-                        text: 'Logout', 
-                        style: 'destructive',
-                        onPress: () => console.log('Logout pressed')
-                      }
-                    ]
-                  )}
+                  onPress={handleLogout}
                 >
-                  <Text style={styles.actionIcon}>🚪</Text>
+                  <Ionicons name="log-out-outline" size={16} color="#DC2626" />
                   <Text style={[styles.actionText, styles.logoutText]}>Logout</Text>
                 </TouchableOpacity>
               </View>
@@ -555,14 +636,14 @@ const ProfileScreen = ({ navigation }) => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Change Password</Text>
               <TouchableOpacity onPress={() => setShowPasswordModal(false)}>
-                <Text style={styles.modalClose}>✕</Text>
+                <Ionicons name="close" size={24} color="#6B7280" />
               </TouchableOpacity>
             </View>
             
             <ScrollView style={styles.modalContent}>
               <View style={styles.modalIllustration}>
                 <View style={styles.modalIconContainer}>
-                  <Text style={styles.modalIcon}>🔒</Text>
+                  <Ionicons name="lock-closed-outline" size={32} color="#4CAF50" />
                 </View>
                 <Text style={styles.modalSubtitle}>Create a strong, unique password</Text>
               </View>
@@ -609,7 +690,7 @@ const ProfileScreen = ({ navigation }) => {
                 disabled={isLoading}
               >
                 <LinearGradient
-                  colors={['#3B82F6', '#1D4ED8']}
+                  colors={['#4CAF50', '#45a049']}
                   style={styles.modalButtonGradient}
                 >
                   <Text style={styles.modalButtonText}>
@@ -624,6 +705,9 @@ const ProfileScreen = ({ navigation }) => {
     </View>
   );
 };
+
+// ... (Keep all the styles from the previous code, they are correct)
+// Make sure to copy all the StyleSheet.create styles from the previous response
 
 const styles = StyleSheet.create({
   container: {
@@ -652,11 +736,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  backIcon: {
-    fontSize: 20,
-    color: '#FFFFFF',
-    fontWeight: '600',
   },
   headerTitle: {
     fontSize: 18,
@@ -726,7 +805,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#10B981',
     borderWidth: 2,
-    borderColor: '#1F2937',
+    borderColor: '#FFFFFF',
   },
   verifiedBadge: {
     flexDirection: 'row',
@@ -738,15 +817,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(16, 185, 129, 0.3)',
   },
-  verifiedIcon: {
-    fontSize: 12,
-    color: '#10B981',
-    marginRight: 4,
-  },
   verifiedText: {
     fontSize: 12,
     color: '#10B981',
     fontWeight: '600',
+    marginLeft: 4,
   },
   profileInfo: {
     flex: 1,
@@ -759,12 +834,12 @@ const styles = StyleSheet.create({
   },
   userRole: {
     fontSize: 16,
-    color: '#D1D5DB',
+    color: '#E8F5E8',
     marginBottom: 2,
   },
   userCompany: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: '#C8E6C9',
     marginBottom: 16,
   },
   statsRow: {
@@ -786,7 +861,7 @@ const styles = StyleSheet.create({
   },
   statMiniLabel: {
     fontSize: 12,
-    color: '#D1D5DB',
+    color: '#E8F5E8',
   },
   statDivider: {
     width: 1,
@@ -827,7 +902,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#E8F5E8',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -874,7 +949,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   tabTextActive: {
-    color: '#3B82F6',
+    color: '#4CAF50',
     fontWeight: '600',
   },
   tabIndicator: {
@@ -883,7 +958,7 @@ const styles = StyleSheet.create({
     left: '25%',
     right: '25%',
     height: 3,
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#4CAF50',
     borderRadius: 1.5,
   },
   tabContent: {
@@ -903,15 +978,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  inputIcon: {
-    fontSize: 16,
-    marginRight: 8,
-    color: '#6B7280',
-  },
   inputLabel: {
     fontSize: 14,
     fontWeight: '500',
     color: '#374151',
+    marginLeft: 8,
   },
   textInput: {
     borderWidth: 1,
@@ -934,7 +1005,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     ...Platform.select({
       ios: {
-        shadowColor: '#3B82F6',
+        shadowColor: '#4CAF50',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -976,14 +1047,10 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#E8F5E8',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
-  },
-  settingIcon: {
-    fontSize: 18,
-    color: '#3B82F6',
   },
   settingTextContainer: {
     flex: 1,
@@ -1001,11 +1068,6 @@ const styles = StyleSheet.create({
   },
   arrowButton: {
     padding: 4,
-  },
-  arrowIcon: {
-    fontSize: 18,
-    color: '#9CA3AF',
-    fontWeight: 'bold',
   },
   securityContainer: {
     backgroundColor: '#F9FAFB',
@@ -1029,14 +1091,10 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: '#FEF3F2',
+    backgroundColor: '#E8F5E8',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
-  },
-  securityIcon: {
-    fontSize: 18,
-    color: '#DC2626',
   },
   securityTitle: {
     fontSize: 16,
@@ -1068,14 +1126,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF2F2',
     borderColor: '#FECACA',
   },
-  actionIcon: {
-    fontSize: 16,
-    marginRight: 8,
-  },
   actionText: {
     fontSize: 14,
     fontWeight: '500',
     color: '#374151',
+    marginLeft: 8,
   },
   logoutText: {
     color: '#DC2626',
@@ -1105,11 +1160,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#111827',
   },
-  modalClose: {
-    fontSize: 20,
-    color: '#6B7280',
-    fontWeight: '300',
-  },
   modalContent: {
     padding: 20,
   },
@@ -1121,13 +1171,10 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 20,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#E8F5E8',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
-  },
-  modalIcon: {
-    fontSize: 32,
   },
   modalSubtitle: {
     fontSize: 16,
