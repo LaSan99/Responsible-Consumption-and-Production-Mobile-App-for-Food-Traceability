@@ -126,17 +126,29 @@ export default function ProductDetailScreen({ route, navigation }) {
         >
           {/* Product Image */}
           <View style={styles.imageContainer}>
-            {product.image && !imageError ? (
+            {product.product_image && !imageError ? (
               <Image 
-                source={{ uri: product.image }}
+                source={{ uri: `${apiConfig.baseURL}/${product.product_image.replace(/\\/g, '/')}` }}
                 style={styles.productImage}
                 resizeMode="cover"
-                onError={() => setImageError(true)}
+                onError={(error) => {
+                  console.log('Image load error:', error);
+                  console.log('Image URL:', `${apiConfig.baseURL}/${product.product_image.replace(/\\/g, '/')}`);
+                  setImageError(true);
+                }}
+                onLoad={() => console.log('Image loaded successfully:', `${apiConfig.baseURL}/${product.product_image.replace(/\\/g, '/')}`)}
               />
             ) : (
               <View style={styles.placeholderImage}>
                 <Text style={styles.placeholderIcon}>{getProductIcon(product.name)}</Text>
-                <Text style={styles.placeholderText}>No Image</Text>
+                <Text style={styles.placeholderText}>
+                  {product.product_image ? 'Image Load Error' : 'No Image'}
+                </Text>
+                {product.product_image && (
+                  <Text style={styles.debugText}>
+                    URL: {`${apiConfig.baseURL}/${product.product_image.replace(/\\/g, '/')}`}
+                  </Text>
+                )}
               </View>
             )}
           </View>
@@ -389,6 +401,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#9ca3af',
     fontWeight: '500',
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 8,
+    textAlign: 'center',
   },
   productCard: {
     backgroundColor: '#fff',
