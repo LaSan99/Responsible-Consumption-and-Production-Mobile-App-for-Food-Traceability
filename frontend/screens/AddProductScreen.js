@@ -11,11 +11,13 @@ import {
   Platform,
   ActivityIndicator,
   Dimensions,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import * as ImagePicker from 'expo-image-picker';
 import apiConfig from '../config/api';
 
 const { width, height } = Dimensions.get('window');
@@ -32,12 +34,111 @@ export default function AddProductScreen({ navigation }) {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [focusedField, setFocusedField] = useState('');
+  const [productImage, setProductImage] = useState(null);
 
   const handleInputChange = (field, value) => {
     setProductData(prev => ({
       ...prev,
       [field]: value
     }));
+  };
+
+  const requestPermissions = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please grant camera roll permissions to upload photos.');
+      return false;
+    }
+    return true;
+  };
+
+  const pickImage = async () => {
+    try {
+      console.log('Opening gallery...');
+      const hasPermission = await requestPermissions();
+      if (!hasPermission) {
+        console.log('Permission denied for gallery');
+        return;
+      }
+
+      console.log('Launching image library...');
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      console.log('Gallery result:', result);
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        console.log('Image selected:', result.assets[0]);
+        setProductImage(result.assets[0]);
+      } else {
+        console.log('No image selected or result was canceled');
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to open gallery. Please try again.');
+    }
+  };
+
+  const takePhoto = async () => {
+    try {
+      console.log('Opening camera...');
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('Camera permission denied');
+        Alert.alert('Permission Required', 'Please grant camera permissions to take photos.');
+        return;
+      }
+
+      console.log('Launching camera...');
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      console.log('Camera result:', result);
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        console.log('Photo taken:', result.assets[0]);
+        setProductImage(result.assets[0]);
+      } else {
+        console.log('No photo taken or result was canceled');
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      Alert.alert('Error', 'Failed to open camera. Please try again.');
+    }
+  };
+
+  const showImagePicker = () => {
+    console.log('showImagePicker called');
+    Alert.alert(
+      'Select Photo',
+      'Choose how you want to add a product photo',
+      [
+        { 
+          text: 'Camera', 
+          onPress: () => {
+            console.log('Camera option selected');
+            takePhoto();
+          }
+        },
+        { 
+          text: 'Gallery', 
+          onPress: () => {
+            console.log('Gallery option selected');
+            pickImage();
+          }
+        },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
+
+  const removeImage = () => {
+    setProductImage(null);
   };
 
   const validateForm = () => {
@@ -63,19 +164,36 @@ export default function AddProductScreen({ navigation }) {
     try {
       const token = await AsyncStorage.getItem('token');
       
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('name', productData.name.trim());
+      formData.append('batch_code', productData.batch_code.trim());
+      formData.append('description', productData.description.trim());
+      formData.append('category', productData.category.trim());
+      formData.append('origin', productData.origin.trim());
+      formData.append('harvest_date', productData.harvest_date.trim());
+      formData.append('expiry_date', productData.expiry_date.trim());
+      
+      // Add image if selected
+      if (productImage) {
+        console.log('Adding image to form data:', productImage);
+        formData.append('product_image', {
+          uri: productImage.uri,
+          type: 'image/jpeg',
+          name: 'product_image.jpg',
+        });
+      } else {
+        console.log('No image selected');
+      }
+      
       const response = await axios.post(
         `${apiConfig.baseURL}/products`,
+        formData,
         {
-          name: productData.name.trim(),
-          batch_code: productData.batch_code.trim(),
-          description: productData.description.trim(),
-          category: productData.category.trim(),
-          origin: productData.origin.trim(),
-          harvest_date: productData.harvest_date.trim(),
-          expiry_date: productData.expiry_date.trim(),
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
+          }
         }
       );
 
@@ -83,20 +201,21 @@ export default function AddProductScreen({ navigation }) {
         'Success!',
         'Product has been added successfully',
         [
-          {
-            text: 'Add Another',
-            onPress: () => {
-              setProductData({
-                name: '',
-                batch_code: '',
-                description: '',
-                category: '',
-                origin: '',
-                harvest_date: '',
-                expiry_date: '',
-              });
-            }
-          },
+            {
+              text: 'Add Another',
+              onPress: () => {
+                setProductData({
+                  name: '',
+                  batch_code: '',
+                  description: '',
+                  category: '',
+                  origin: '',
+                  harvest_date: '',
+                  expiry_date: '',
+                });
+                setProductImage(null);
+              }
+            },
           {
             text: 'Go to Dashboard',
             onPress: () => navigation.navigate('ProducerProfile'),
@@ -235,6 +354,40 @@ export default function AddProductScreen({ navigation }) {
               true,
               4
             )}
+
+            {/* Product Photo Section */}
+            <View style={styles.photoSection}>
+              <Text style={styles.photoSectionTitle}>Product Photo</Text>
+              <Text style={styles.photoSectionSubtitle}>
+                Add a photo of your product (optional)
+              </Text>
+              
+              {productImage ? (
+                <View style={styles.imagePreviewContainer}>
+                  <Image source={{ uri: productImage.uri }} style={styles.imagePreview} />
+                  <TouchableOpacity
+                    style={styles.removeImageButton}
+                    onPress={removeImage}
+                  >
+                    <Ionicons name="close-circle" size={24} color="#ff4444" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.photoUploadButton}
+                  onPress={showImagePicker}
+                >
+                  <LinearGradient
+                    colors={['#f0f0f0', '#e0e0e0']}
+                    style={styles.photoUploadGradient}
+                  >
+                    <Ionicons name="camera-outline" size={32} color="#666" />
+                    <Text style={styles.photoUploadText}>Tap to add photo</Text>
+                    <Text style={styles.photoUploadSubtext}>Camera or Gallery</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+            </View>
 
             {/* Add Product Button */}
             <TouchableOpacity
@@ -395,5 +548,63 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  photoSection: {
+    marginBottom: 20,
+  },
+  photoSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 5,
+  },
+  photoSectionSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 15,
+  },
+  photoUploadButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    borderStyle: 'dashed',
+  },
+  photoUploadGradient: {
+    paddingVertical: 30,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoUploadText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+    marginTop: 8,
+  },
+  photoUploadSubtext: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
+  },
+  imagePreviewContainer: {
+    position: 'relative',
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#4CAF50',
+  },
+  imagePreview: {
+    width: '100%',
+    height: 200,
+    resizeMode: 'cover',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 12,
+    padding: 4,
   },
 });

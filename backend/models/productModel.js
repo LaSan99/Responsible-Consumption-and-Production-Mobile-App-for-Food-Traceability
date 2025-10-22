@@ -1,15 +1,18 @@
 const db = require('../db');
 
 const Product = {
-  create: (name, batch_code, description, created_by, category, origin, harvest_date, expiry_date, callback) => {
-    // First try with new columns
+  create: (name, batch_code, description, created_by, category, origin, harvest_date, expiry_date, product_image, callback) => {
+    console.log('Creating product with image:', product_image);
+    // First try with new columns including image
     db.query(
-      'INSERT INTO products (name, batch_code, description, created_by, category, origin, harvest_date, expiry_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [name, batch_code, description, created_by, category || null, origin || null, harvest_date || null, expiry_date || null],
+      'INSERT INTO products (name, batch_code, description, created_by, category, origin, harvest_date, expiry_date, product_image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [name, batch_code, description, created_by, category || null, origin || null, harvest_date || null, expiry_date || null, product_image || null],
       (err, results) => {
         if (err) {
+          console.log('Database insert error:', err);
           // If error due to missing columns, try with basic columns only
           if (err.code === 'ER_BAD_FIELD_ERROR') {
+            console.log('Missing columns, trying basic insert');
             db.query(
               'INSERT INTO products (name, batch_code, description, created_by) VALUES (?, ?, ?, ?)',
               [name, batch_code, description, created_by],
@@ -19,6 +22,7 @@ const Product = {
             callback(err, results);
           }
         } else {
+          console.log('Product created successfully in database');
           callback(err, results);
         }
       }
@@ -34,6 +38,7 @@ const Product = {
               COALESCE(p.harvest_date, '') as harvest_date, 
               COALESCE(p.expiry_date, '') as expiry_date, 
               COALESCE(p.location, '') as location,
+              COALESCE(p.product_image, '') as product_image,
               u.full_name AS created_by_name
        FROM products p
        JOIN users u ON p.created_by = u.id`,
@@ -59,7 +64,15 @@ const Product = {
 
 
   getById: (id, callback) => {
-    db.query('SELECT * FROM products WHERE id = ?', [id], callback);
+    db.query('SELECT * FROM products WHERE id = ?', [id], (err, results) => {
+      if (err) {
+        console.log('Error fetching product by ID:', err);
+        callback(err, results);
+      } else {
+        console.log('Product fetched:', results);
+        callback(err, results);
+      }
+    });
   },
 
   getByProducer: (producerId, callback) => {
@@ -70,6 +83,7 @@ const Product = {
               COALESCE(p.origin, '') as origin, 
               COALESCE(p.harvest_date, '') as harvest_date, 
               COALESCE(p.expiry_date, '') as expiry_date, 
+              COALESCE(p.product_image, '') as product_image,
               p.created_by, u.full_name AS created_by_name
        FROM products p
        JOIN users u ON p.created_by = u.id

@@ -26,6 +26,7 @@ import AddProductScreen from './screens/AddProductScreen';
 
 // Shared Screens
 import ProductDetailScreen from './screens/ProductDetailScreen';
+import ProductDetailsWeatherPage from './screens/ProductDetailsWeatherPage';
 import ProductCertificationsScreen from './screens/ProductCertificationsScreen';
 import FindFarmerScreen from './screens/FindFarmerScreen';
 import BlockchainStagesScreen from './screens/BlockchainStagesScreen';
@@ -277,6 +278,11 @@ export default function App() {
             <Stack.Screen
               name="ProductDetail"
               component={ProductDetailScreen}
+              options={{ presentation: 'modal' }}
+            />
+            <Stack.Screen
+              name="ProductDetailWeather"
+              component={ProductDetailsWeatherPage}
               options={{ presentation: 'modal' }}
             />
             <Stack.Screen

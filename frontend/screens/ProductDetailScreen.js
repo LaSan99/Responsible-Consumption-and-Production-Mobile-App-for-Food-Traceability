@@ -126,17 +126,29 @@ export default function ProductDetailScreen({ route, navigation }) {
         >
           {/* Product Image */}
           <View style={styles.imageContainer}>
-            {product.image && !imageError ? (
+            {product.product_image && !imageError ? (
               <Image 
-                source={{ uri: product.image }}
+                source={{ uri: `${apiConfig.baseURL}/${product.product_image.replace(/\\/g, '/')}` }}
                 style={styles.productImage}
                 resizeMode="cover"
-                onError={() => setImageError(true)}
+                onError={(error) => {
+                  console.log('Image load error:', error);
+                  console.log('Image URL:', `${apiConfig.baseURL}/${product.product_image.replace(/\\/g, '/')}`);
+                  setImageError(true);
+                }}
+                onLoad={() => console.log('Image loaded successfully:', `${apiConfig.baseURL}/${product.product_image.replace(/\\/g, '/')}`)}
               />
             ) : (
               <View style={styles.placeholderImage}>
                 <Text style={styles.placeholderIcon}>{getProductIcon(product.name)}</Text>
-                <Text style={styles.placeholderText}>No Image</Text>
+                <Text style={styles.placeholderText}>
+                  {product.product_image ? 'Image Load Error' : 'No Image'}
+                </Text>
+                {product.product_image && (
+                  <Text style={styles.debugText}>
+                    URL: {`${apiConfig.baseURL}/${product.product_image.replace(/\\/g, '/')}`}
+                  </Text>
+                )}
               </View>
             )}
           </View>
@@ -240,6 +252,24 @@ export default function ProductDetailScreen({ route, navigation }) {
               </LinearGradient>
             </TouchableOpacity>
 
+            {/* Check Expiry Button */}
+            <TouchableOpacity 
+              style={styles.checkExpiryButton}
+              onPress={() => navigation.navigate('ProductDetailWeather', { 
+                productId, 
+                productName: product.name 
+              })}
+            >
+              <LinearGradient
+                colors={['#FF9800', '#F57C00']}
+                style={styles.checkExpiryButtonGradient}
+              >
+                <Ionicons name="warning-outline" size={20} color="#fff" />
+                <Text style={styles.checkExpiryButtonText}>Check Expiry</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            {/* Certificate Management Button */}
             <TouchableOpacity 
               style={styles.secondaryButton}
               onPress={() => navigation.navigate('ProductCertificationManagement', { 
@@ -390,6 +420,12 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     fontWeight: '500',
   },
+  debugText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 8,
+    textAlign: 'center',
+  },
   productCard: {
     backgroundColor: '#fff',
     marginHorizontal: 20,
@@ -497,6 +533,28 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   primaryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  checkExpiryButton: {
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#FF9800',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  checkExpiryButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+  },
+  checkExpiryButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
