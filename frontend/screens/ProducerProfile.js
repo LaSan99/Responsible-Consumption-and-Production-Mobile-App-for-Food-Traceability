@@ -54,6 +54,7 @@ export default function ProducerProfile({ navigation }) {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [products, setProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -63,6 +64,7 @@ export default function ProducerProfile({ navigation }) {
   useEffect(() => {
     loadUserData();
     loadProducerProducts();
+    loadAllProducts();
     startImageSlider();
   }, []);
 
@@ -72,7 +74,7 @@ export default function ProducerProfile({ navigation }) {
       setCurrentImageIndex(prevIndex => 
         prevIndex === FARMER_IMAGES.length - 1 ? 0 : prevIndex + 1
       );
-    }, 6000); // Changed from 4000 to 6000 for slower slides
+    }, 6000);
     return () => clearInterval(interval);
   };
 
@@ -87,7 +89,7 @@ export default function ProducerProfile({ navigation }) {
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadUserData(), loadProducerProducts()]);
+    await Promise.all([loadUserData(), loadProducerProducts(), loadAllProducts()]);
     setRefreshing(false);
   }, []);
 
@@ -116,6 +118,18 @@ export default function ProducerProfile({ navigation }) {
     }
   };
 
+  const loadAllProducts = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const response = await axios.get(`${apiConfig.baseURL}/products/producer/my-products`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAllProducts(response.data);
+    } catch (error) {
+      console.error('Error loading all products:', error);
+    }
+  };
+
   const handleLogout = async () => {
     Alert.alert(
       'Logout',
@@ -127,6 +141,10 @@ export default function ProducerProfile({ navigation }) {
           style: 'destructive',
           onPress: async () => {
             await AsyncStorage.multiRemove(['token', 'user']);
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Login' }],
+            });
           },
         },
       ]
@@ -141,31 +159,86 @@ export default function ProducerProfile({ navigation }) {
     navigation.navigate('Products');
   };
 
+  // Fixed function to handle blockchain navigation with actual product data
   const navigateToSupplyChain = () => {
-    if (products.length === 0) {
+    const availableProducts = products.filter(product => 
+      product && product.id && product.name
+    );
+
+    if (availableProducts.length === 0) {
       Alert.alert(
         'No Products',
         'You need to add products first before managing blockchain stages.',
-        [{ text: 'Add Product', onPress: navigateToAddProduct }]
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Add Product', onPress: navigateToAddProduct }
+        ]
       );
       return;
     }
     
-    if (products.length === 1) {
+    if (availableProducts.length === 1) {
+      const product = availableProducts[0];
       navigation.navigate('BlockchainStages', {
-        productId: products[0].id,
-        productName: products[0].name
+        productId: product.id,
+        productName: product.name,
+        productData: product // Pass full product data
       });
     } else {
       Alert.alert(
         'Select Product',
         'Choose a product to manage its blockchain stages:',
         [
-          ...products.slice(0, 3).map(product => ({
-            text: product.name,
+          ...availableProducts.map(product => ({
+            text: product.name || `Product ${product.id}`,
             onPress: () => navigation.navigate('BlockchainStages', {
               productId: product.id,
-              productName: product.name
+              productName: product.name,
+              productData: product // Pass full product data
+            })
+          })),
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
+    }
+  };
+
+  // Fixed function to handle certification navigation with actual product data
+  const navigateToCertifications = () => {
+    const availableProducts = products.filter(product => 
+      product && product.id && product.name
+    );
+
+    if (availableProducts.length === 0) {
+      Alert.alert(
+        'No Products',
+        'You need to add products first before managing certifications.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Add Product', onPress: navigateToAddProduct }
+        ]
+      );
+      return;
+    }
+    
+    if (availableProducts.length === 1) {
+      const product = availableProducts[0];
+      navigation.navigate('ProductCertificationManagement', {
+        productId: product.id,
+        productName: product.name,
+        productData: product // Pass full product data
+      });
+    } else {
+      Alert.alert(
+        'Select Product',
+        'Choose a product to manage its certifications:',
+        [
+          ...availableProducts.map(product => ({
+            text: product.name || `Product ${product.id}`,
+            onPress: () => navigation.navigate('ProductCertificationManagement', {
+              productId: product.id,
+              productName: product.name,
+              productData: product // Pass full product data
             })
           })),
           { text: 'Cancel', style: 'cancel' }
@@ -177,7 +250,7 @@ export default function ProducerProfile({ navigation }) {
   // Animation values
   const headerHeight = scrollY.interpolate({
     inputRange: [0, 100],
-    outputRange: [300, 200], // Reduced height since profile is moved down
+    outputRange: [300, 200],
     extrapolate: 'clamp',
   });
 
@@ -229,6 +302,57 @@ export default function ProducerProfile({ navigation }) {
     const index = event.nativeEvent.contentOffset.x / slideSize;
     const roundIndex = Math.round(index);
     setCurrentImageIndex(roundIndex);
+  };
+
+  // Function to calculate time ago
+  const getTimeAgo = (dateString) => {
+    if (!dateString) return 'Unknown';
+    
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffInMs = now - date;
+      const diffInHours = diffInMs / (1000 * 60 * 60);
+      const diffInDays = diffInHours / 24;
+
+      if (diffInHours < 1) {
+        return 'Just now';
+      } else if (diffInHours < 24) {
+        return `${Math.floor(diffInHours)} hours ago`;
+      } else if (diffInDays < 7) {
+        return `${Math.floor(diffInDays)} days ago`;
+      } else {
+        return date.toLocaleDateString();
+      }
+    } catch (error) {
+      return 'Unknown';
+    }
+  };
+
+  // Function to get product status with fallback
+  const getProductStatus = (product) => {
+    if (!product) return 'Unknown';
+    
+    if (product.status) {
+      return product.status.charAt(0).toUpperCase() + product.status.slice(1);
+    }
+    
+    // Fallback status based on available data
+    if (product.is_active !== undefined) {
+      return product.is_active ? 'Active' : 'Inactive';
+    }
+    
+    return 'Active'; // Default status
+  };
+
+  // Function to get status color
+  const getStatusColor = (status) => {
+    const statusLower = status?.toLowerCase();
+    if (statusLower === 'active' || statusLower === 'published') return '#4CAF50';
+    if (statusLower === 'inactive' || statusLower === 'draft') return '#FF9800';
+    if (statusLower === 'pending') return '#2196F3';
+    if (statusLower === 'rejected') return '#F44336';
+    return '#666';
   };
 
   if (isLoading) {
@@ -366,7 +490,7 @@ export default function ProducerProfile({ navigation }) {
                 <Ionicons name="cube-outline" size={20} color="#4CAF50" />
               </View>
               <Text style={styles.statNumber}>{products.length}</Text>
-              <Text style={styles.statLabel}>Products</Text>
+              <Text style={styles.statLabel}>My Products</Text>
             </View>
             
             <View style={styles.statDivider} />
@@ -375,8 +499,8 @@ export default function ProducerProfile({ navigation }) {
               <View style={[styles.statIconContainer, styles.ordersIcon]}>
                 <Ionicons name="trending-up-outline" size={20} color="#FF9800" />
               </View>
-              <Text style={styles.statNumber}>0</Text>
-              <Text style={styles.statLabel}>Orders</Text>
+              <Text style={styles.statNumber}>{allProducts.length}</Text>
+              <Text style={styles.statLabel}>All Products</Text>
             </View>
             
             <View style={styles.statDivider} />
@@ -431,38 +555,7 @@ export default function ProducerProfile({ navigation }) {
                 subtitle: 'Manage',
                 icon: 'ribbon-outline',
                 colors: ['#9C27B0', '#7B1FA2'],
-                onPress: () => {
-                  if (products.length === 0) {
-                    Alert.alert(
-                      'No Products',
-                      'You need to add products first before managing certifications.',
-                      [{ text: 'Add Product', onPress: navigateToAddProduct }]
-                    );
-                    return;
-                  }
-                  
-                  if (products.length === 1) {
-                    navigation.navigate('ProductCertificationManagement', {
-                      productId: products[0].id,
-                      productName: products[0].name
-                    });
-                  } else {
-                    Alert.alert(
-                      'Select Product',
-                      'Choose a product to manage its certifications:',
-                      [
-                        ...products.slice(0, 3).map(product => ({
-                          text: product.name,
-                          onPress: () => navigation.navigate('ProductCertificationManagement', {
-                            productId: product.id,
-                            productName: product.name
-                          })
-                        })),
-                        { text: 'Cancel', style: 'cancel' }
-                      ]
-                    );
-                  }
-                }
+                onPress: navigateToCertifications
               }
             ].map((action, index) => (
               <TouchableOpacity
@@ -484,79 +577,101 @@ export default function ProducerProfile({ navigation }) {
             ))}
           </View>
 
-          {/* Recent Products Section */}
+          {/* Recent Products Section - Now showing ALL products */}
           <View style={styles.recentSection}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Recent Products</Text>
-              {products.length > 0 && (
+              <Text style={styles.sectionTitle}>All Products</Text>
+              {allProducts.length > 0 && (
                 <TouchableOpacity 
                   style={styles.seeAllButton}
-                  onPress={navigateToManageProducts}
+                  onPress={() => navigation.navigate('AllProducts')}
                 >
-                  <Text style={styles.seeAllText}>See All</Text>
+                  <Text style={styles.seeAllText}>View All</Text>
                   <Ionicons name="chevron-forward" size={16} color="#4CAF50" />
                 </TouchableOpacity>
               )}
             </View>
 
-            {products.length > 0 ? (
+            {allProducts.length > 0 ? (
               <View style={styles.productsList}>
-                {products.slice(0, 3).map((product, index) => (
-                  <TouchableOpacity 
-                    key={index} 
-                    style={styles.productCard}
-                    onPress={() => navigation.navigate('ProductDetail', { productId: product.id })}
-                  >
-                    <View style={styles.productHeader}>
-                      <View style={styles.productIcon}>
-                        <Ionicons name="cube" size={20} color="#4CAF50" />
-                      </View>
-                      <View style={styles.productInfo}>
-                        <Text style={styles.productName}>{product.name}</Text>
-                        <Text style={styles.productCategory}>
-                          {product.category || 'No category'}
-                        </Text>
-                      </View>
-                      <View style={[styles.statusBadge, styles.activeStatus]}>
-                        <Ionicons name="ellipse" size={8} color="#4CAF50" />
-                        <Text style={styles.statusText}>Active</Text>
-                      </View>
-                    </View>
-                    
-                    <View style={styles.productDetails}>
-                      <View style={styles.detailItem}>
-                        <Ionicons name="barcode-outline" size={14} color="#666" />
-                        <Text style={styles.detailText}>Batch: {product.batch_code}</Text>
-                      </View>
-                      {product.origin && (
-                        <View style={styles.detailItem}>
-                          <Ionicons name="location-outline" size={14} color="#666" />
-                          <Text style={styles.detailText}>{product.origin}</Text>
+                {allProducts.slice(0, 5).map((product, index) => {
+                  const status = getProductStatus(product);
+                  const statusColor = getStatusColor(status);
+                  
+                  return (
+                    <TouchableOpacity 
+                      key={product.id || index} 
+                      style={styles.productCard}
+                      onPress={() => navigation.navigate('ProductDetail', { 
+                        productId: product.id,
+                        productData: product 
+                      })}
+                    >
+                      <View style={styles.productHeader}>
+                        <View style={styles.productIcon}>
+                          <Ionicons name="cube" size={20} color="#4CAF50" />
                         </View>
-                      )}
-                    </View>
+                        <View style={styles.productInfo}>
+                          <Text style={styles.productName}>
+                            {product.name || `Product ${product.id}`}
+                          </Text>
+                          <Text style={styles.productCategory}>
+                            {product.category || product.type || 'No category'}
+                          </Text>
+                        </View>
+                        <View style={[styles.statusBadge, { backgroundColor: `${statusColor}15` }]}>
+                          <Ionicons name="ellipse" size={8} color={statusColor} />
+                          <Text style={[styles.statusText, { color: statusColor }]}>
+                            {status}
+                          </Text>
+                        </View>
+                      </View>
+                      
+                      <View style={styles.productDetails}>
+                        <View style={styles.detailItem}>
+                          <Ionicons name="barcode-outline" size={14} color="#666" />
+                          <Text style={styles.detailText}>
+                            Batch: {product.batch_code || product.batch_number || 'N/A'}
+                          </Text>
+                        </View>
+                        {(product.origin || product.location) && (
+                          <View style={styles.detailItem}>
+                            <Ionicons name="location-outline" size={14} color="#666" />
+                            <Text style={styles.detailText}>
+                              {product.origin || product.location}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
 
-                    <View style={styles.productFooter}>
-                      <View style={styles.footerItem}>
-                        <Text style={styles.footerLabel}>Created</Text>
-                        <Text style={styles.footerValue}>2 days ago</Text>
+                      <View style={styles.productFooter}>
+                        <View style={styles.footerItem}>
+                          <Text style={styles.footerLabel}>Producer</Text>
+                          <Text style={styles.footerValue}>
+                            {product.producer_name || user?.full_name || 'Unknown'}
+                          </Text>
+                        </View>
+                        <View style={styles.footerDivider} />
+                        <View style={styles.footerItem}>
+                          <Text style={styles.footerLabel}>Created</Text>
+                          <Text style={styles.footerValue}>
+                            {getTimeAgo(product.created_at || product.date_added)}
+                          </Text>
+                        </View>
                       </View>
-                      <View style={styles.footerDivider} />
-                      <View style={styles.footerItem}>
-                        <Text style={styles.footerLabel}>Stages</Text>
-                        <Text style={styles.footerValue}>3/5</Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                ))}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             ) : (
               <View style={styles.emptyState}>
                 <View style={styles.emptyIconContainer}>
                   <Ionicons name="cube-outline" size={64} color="#e0e0e0" />
                 </View>
-                <Text style={styles.emptyTitle}>No products yet</Text>
-                <Text style={styles.emptySubtitle}>Start by adding your first product to the platform</Text>
+                <Text style={styles.emptyTitle}>No products available</Text>
+                <Text style={styles.emptySubtitle}>
+                  There are no products in the system yet. Be the first to add one!
+                </Text>
                 <TouchableOpacity 
                   style={styles.addFirstProductButton}
                   onPress={navigateToAddProduct}
@@ -691,7 +806,7 @@ const styles = StyleSheet.create({
   // Profile Section - Moved below slideshow
   profileSection: {
     paddingHorizontal: 20,
-    marginTop: -40, // Overlap slightly with the image slider
+    marginTop: -40,
     zIndex: 5,
   },
   profileCard: {
@@ -964,13 +1079,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 4,
   },
-  activeStatus: {
-    backgroundColor: 'rgba(76, 175, 80, 0.1)',
-  },
   statusText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#4CAF50',
     fontFamily: 'System',
   },
   productDetails: {
