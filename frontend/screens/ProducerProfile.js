@@ -54,6 +54,7 @@ export default function ProducerProfile({ navigation }) {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [products, setProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]); // New state for all products
   const [refreshing, setRefreshing] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -63,6 +64,7 @@ export default function ProducerProfile({ navigation }) {
   useEffect(() => {
     loadUserData();
     loadProducerProducts();
+    loadAllProducts(); // Load all products on component mount
     startImageSlider();
   }, []);
 
@@ -87,7 +89,7 @@ export default function ProducerProfile({ navigation }) {
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadUserData(), loadProducerProducts()]);
+    await Promise.all([loadUserData(), loadProducerProducts(), loadAllProducts()]);
     setRefreshing(false);
   }, []);
 
@@ -113,6 +115,19 @@ export default function ProducerProfile({ navigation }) {
       console.error('Error loading producer products:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // New function to load all products
+  const loadAllProducts = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const response = await axios.get(`${apiConfig.baseURL}/products`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAllProducts(response.data);
+    } catch (error) {
+      console.error('Error loading all products:', error);
     }
   };
 
@@ -229,6 +244,25 @@ export default function ProducerProfile({ navigation }) {
     const index = event.nativeEvent.contentOffset.x / slideSize;
     const roundIndex = Math.round(index);
     setCurrentImageIndex(roundIndex);
+  };
+
+  // Function to calculate time ago
+  const getTimeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now - date;
+    const diffInHours = diffInMs / (1000 * 60 * 60);
+    const diffInDays = diffInHours / 24;
+
+    if (diffInHours < 1) {
+      return 'Just now';
+    } else if (diffInHours < 24) {
+      return `${Math.floor(diffInHours)} hours ago`;
+    } else if (diffInDays < 7) {
+      return `${Math.floor(diffInDays)} days ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
   };
 
   if (isLoading) {
@@ -366,7 +400,7 @@ export default function ProducerProfile({ navigation }) {
                 <Ionicons name="cube-outline" size={20} color="#4CAF50" />
               </View>
               <Text style={styles.statNumber}>{products.length}</Text>
-              <Text style={styles.statLabel}>Products</Text>
+              <Text style={styles.statLabel}>My Products</Text>
             </View>
             
             <View style={styles.statDivider} />
@@ -375,8 +409,8 @@ export default function ProducerProfile({ navigation }) {
               <View style={[styles.statIconContainer, styles.ordersIcon]}>
                 <Ionicons name="trending-up-outline" size={20} color="#FF9800" />
               </View>
-              <Text style={styles.statNumber}>0</Text>
-              <Text style={styles.statLabel}>Orders</Text>
+              <Text style={styles.statNumber}>{allProducts.length}</Text>
+              <Text style={styles.statLabel}>All Products</Text>
             </View>
             
             <View style={styles.statDivider} />
@@ -484,26 +518,26 @@ export default function ProducerProfile({ navigation }) {
             ))}
           </View>
 
-          {/* Recent Products Section */}
+          {/* Recent Products Section - Now showing ALL products */}
           <View style={styles.recentSection}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Recent Products</Text>
-              {products.length > 0 && (
+              <Text style={styles.sectionTitle}>All Products</Text>
+              {allProducts.length > 0 && (
                 <TouchableOpacity 
                   style={styles.seeAllButton}
-                  onPress={navigateToManageProducts}
+                  onPress={() => navigation.navigate('AllProducts')}
                 >
-                  <Text style={styles.seeAllText}>See All</Text>
+                  <Text style={styles.seeAllText}>View All</Text>
                   <Ionicons name="chevron-forward" size={16} color="#4CAF50" />
                 </TouchableOpacity>
               )}
             </View>
 
-            {products.length > 0 ? (
+            {allProducts.length > 0 ? (
               <View style={styles.productsList}>
-                {products.slice(0, 3).map((product, index) => (
+                {allProducts.slice(0, 5).map((product, index) => (
                   <TouchableOpacity 
-                    key={index} 
+                    key={product.id} 
                     style={styles.productCard}
                     onPress={() => navigation.navigate('ProductDetail', { productId: product.id })}
                   >
@@ -519,14 +553,18 @@ export default function ProducerProfile({ navigation }) {
                       </View>
                       <View style={[styles.statusBadge, styles.activeStatus]}>
                         <Ionicons name="ellipse" size={8} color="#4CAF50" />
-                        <Text style={styles.statusText}>Active</Text>
+                        <Text style={styles.statusText}>
+                          {product.status || 'Active'}
+                        </Text>
                       </View>
                     </View>
                     
                     <View style={styles.productDetails}>
                       <View style={styles.detailItem}>
                         <Ionicons name="barcode-outline" size={14} color="#666" />
-                        <Text style={styles.detailText}>Batch: {product.batch_code}</Text>
+                        <Text style={styles.detailText}>
+                          Batch: {product.batch_code || 'N/A'}
+                        </Text>
                       </View>
                       {product.origin && (
                         <View style={styles.detailItem}>
@@ -538,13 +576,17 @@ export default function ProducerProfile({ navigation }) {
 
                     <View style={styles.productFooter}>
                       <View style={styles.footerItem}>
-                        <Text style={styles.footerLabel}>Created</Text>
-                        <Text style={styles.footerValue}>2 days ago</Text>
+                        <Text style={styles.footerLabel}>Producer</Text>
+                        <Text style={styles.footerValue}>
+                          {product.producer_name || user?.full_name || 'Unknown'}
+                        </Text>
                       </View>
                       <View style={styles.footerDivider} />
                       <View style={styles.footerItem}>
-                        <Text style={styles.footerLabel}>Stages</Text>
-                        <Text style={styles.footerValue}>3/5</Text>
+                        <Text style={styles.footerLabel}>Created</Text>
+                        <Text style={styles.footerValue}>
+                          {product.created_at ? getTimeAgo(product.created_at) : 'Unknown'}
+                        </Text>
                       </View>
                     </View>
                   </TouchableOpacity>
@@ -555,8 +597,10 @@ export default function ProducerProfile({ navigation }) {
                 <View style={styles.emptyIconContainer}>
                   <Ionicons name="cube-outline" size={64} color="#e0e0e0" />
                 </View>
-                <Text style={styles.emptyTitle}>No products yet</Text>
-                <Text style={styles.emptySubtitle}>Start by adding your first product to the platform</Text>
+                <Text style={styles.emptyTitle}>No products available</Text>
+                <Text style={styles.emptySubtitle}>
+                  There are no products in the system yet. Be the first to add one!
+                </Text>
                 <TouchableOpacity 
                   style={styles.addFirstProductButton}
                   onPress={navigateToAddProduct}
