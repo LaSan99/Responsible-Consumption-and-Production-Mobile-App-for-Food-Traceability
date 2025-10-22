@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Button, ActivityIndicator, FlatList, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, Button, ActivityIndicator, FlatList, StyleSheet, Alert, TouchableOpacity, Animated } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import axios from 'axios';
 import apiConfig from '../config/api';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function Scanner() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -10,10 +11,21 @@ export default function Scanner() {
   const [loading, setLoading] = useState(false);
   const [stages, setStages] = useState([]);
   const [productInfo, setProductInfo] = useState(null);
+  const [fadeAnim] = useState(new Animated.Value(0));
 
   useEffect(() => {
     if (!permission) requestPermission();
   }, [permission]);
+
+  useEffect(() => {
+    if (stages.length > 0) {
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [stages]);
 
   const handleBarCodeScanned = async ({ data }) => {
     if (scanned) return;
@@ -26,7 +38,6 @@ export default function Scanner() {
       const stagesData = response.data;
       setStages(stagesData);
       
-      // Extract product info from first stage
       if (stagesData.length > 0) {
         setProductInfo({
           name: stagesData[0].product_name,
@@ -42,6 +53,29 @@ export default function Scanner() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const getStageIcon = (stageName) => {
+    const name = stageName.toLowerCase();
+    if (name.includes('manufactur') || name.includes('produc')) return '🏭';
+    if (name.includes('warehouse') || name.includes('storage')) return '📦';
+    if (name.includes('transport') || name.includes('shipping')) return '🚚';
+    if (name.includes('retail') || name.includes('store')) return '🏪';
+    if (name.includes('quality') || name.includes('check')) return '✅';
+    if (name.includes('import') || name.includes('export')) return '🌍';
+    return '📋';
+  };
+
+  const getStatusColor = (index, total) => {
+    if (index === total - 1) return '#10B981'; // Current stage - green
+    if (index < total - 1) return '#4F46E5';   // Completed - indigo
+    return '#9CA3AF';                          // Future - gray
+  };
+
+  const getStatusText = (index, total) => {
+    if (index === total - 1) return 'Current';
+    if (index < total - 1) return 'Completed';
+    return 'Pending';
   };
 
   if (!permission) {
@@ -93,78 +127,116 @@ export default function Scanner() {
           ) : (
             <>
               <View style={styles.header}>
-                <Text style={styles.headerTitle}>🔗 Supply Chain Stages</Text>
-                <Text style={styles.headerSubtitle}>Track your product journey</Text>
+                <Text style={styles.headerTitle}>🔗 Supply Chain Journey</Text>
+                <Text style={styles.headerSubtitle}>Track your product's complete journey</Text>
                 {productInfo && (
                   <View style={styles.productInfoCard}>
-                    <Text style={styles.productName}>📦 {productInfo.name}</Text>
-                    <Text style={styles.batchCode}>Batch: {productInfo.batch_code}</Text>
+                    <View style={styles.productHeader}>
+                      <Ionicons name="cube" size={24} color="#4F46E5" />
+                      <Text style={styles.productName}>{productInfo.name}</Text>
+                    </View>
+                    <View style={styles.batchInfo}>
+                      <Ionicons name="barcode" size={16} color="#6B7280" />
+                      <Text style={styles.batchCode}>Batch: {productInfo.batch_code}</Text>
+                    </View>
                   </View>
                 )}
               </View>
 
               {stages.length > 0 ? (
-                <FlatList
-                  data={stages}
-                  keyExtractor={(item, index) => index.toString()}
-                  contentContainerStyle={styles.listContent}
-                  renderItem={({ item, index }) => (
-                    <View style={styles.stageCard}>
-                      <View style={styles.stageNumber}>
-                        <Text style={styles.stageNumberText}>{index + 1}</Text>
-                      </View>
-                      <View style={styles.stageContent}>
-                        <Text style={styles.stageName}>{item.stage_name}</Text>
-                        
-                        <View style={styles.detailRow}>
-                          <Text style={styles.detailIcon}>📍</Text>
-                          <Text style={styles.detailLabel}>Location:</Text>
-                          <Text style={styles.detailText}>{item.location}</Text>
+                <View style={styles.timelineContainer}>
+                  <FlatList
+                    data={stages}
+                    keyExtractor={(item, index) => index.toString()}
+                    contentContainerStyle={styles.listContent}
+                    showsVerticalScrollIndicator={false}
+                    renderItem={({ item, index }) => (
+                      <Animated.View 
+                        style={[
+                          styles.stageCard,
+                          { opacity: fadeAnim, transform: [{ translateY: fadeAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [50, 0]
+                          })}] }
+                        ]}
+                      >
+                        <View style={styles.stageHeader}>
+                          <View style={styles.stageIconContainer}>
+                            <Text style={styles.stageIcon}>{getStageIcon(item.stage_name)}</Text>
+                          </View>
+                          <View style={styles.stageTitleContainer}>
+                            <Text style={styles.stageName}>{item.stage_name}</Text>
+                            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(index, stages.length) }]}>
+                              <Text style={styles.statusText}>{getStatusText(index, stages.length)}</Text>
+                            </View>
+                          </View>
+                          <View style={styles.stageNumber}>
+                            <Text style={styles.stageNumberText}>{index + 1}</Text>
+                          </View>
                         </View>
-                        
-                        {item.description && (
-                          <View style={styles.detailRow}>
-                            <Text style={styles.detailIcon}>📝</Text>
-                            <Text style={styles.detailLabel}>Description:</Text>
-                            <Text style={styles.detailText}>{item.description}</Text>
+
+                        <View style={styles.stageContent}>
+                          <View style={styles.detailSection}>
+                            <View style={styles.detailRow}>
+                              <Ionicons name="location" size={16} color="#6B7280" />
+                              <Text style={styles.detailLabel}>Location:</Text>
+                              <Text style={styles.detailText}>{item.location}</Text>
+                            </View>
+                            
+                            <View style={styles.detailRow}>
+                              <Ionicons name="person" size={16} color="#6B7280" />
+                              <Text style={styles.detailLabel}>Handler:</Text>
+                              <Text style={styles.detailText}>{item.updated_by_name}</Text>
+                            </View>
+                            
+                            <View style={styles.detailRow}>
+                              <Ionicons name="time" size={16} color="#6B7280" />
+                              <Text style={styles.detailLabel}>Date & Time:</Text>
+                              <Text style={styles.detailText}>
+                                {new Date(item.timestamp).toLocaleString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </Text>
+                            </View>
+                          </View>
+
+                          {(item.description || item.notes) && (
+                            <View style={styles.notesSection}>
+                              {item.description && (
+                                <View style={styles.noteItem}>
+                                  <Ionicons name="document-text" size={14} color="#4F46E5" />
+                                  <Text style={styles.noteLabel}>Description:</Text>
+                                  <Text style={styles.noteText}>{item.description}</Text>
+                                </View>
+                              )}
+                              {item.notes && (
+                                <View style={styles.noteItem}>
+                                  <Ionicons name="chatbubble" size={14} color="#4F46E5" />
+                                  <Text style={styles.noteLabel}>Notes:</Text>
+                                  <Text style={styles.noteText}>{item.notes}</Text>
+                                </View>
+                              )}
+                            </View>
+                          )}
+                        </View>
+
+                        {index < stages.length - 1 && (
+                          <View style={styles.connector}>
+                            <View style={styles.connectorLine} />
+                            <Ionicons name="chevron-down" size={16} color="#E5E7EB" style={styles.connectorIcon} />
                           </View>
                         )}
-                        
-                        {item.notes && (
-                          <View style={styles.detailRow}>
-                            <Text style={styles.detailIcon}>💬</Text>
-                            <Text style={styles.detailLabel}>Notes:</Text>
-                            <Text style={styles.detailText}>{item.notes}</Text>
-                          </View>
-                        )}
-                        
-                        <View style={styles.detailRow}>
-                          <Text style={styles.detailIcon}>👤</Text>
-                          <Text style={styles.detailLabel}>Updated by:</Text>
-                          <Text style={styles.detailText}>{item.updated_by_name}</Text>
-                        </View>
-                        
-                        <View style={styles.detailRow}>
-                          <Text style={styles.detailIcon}>🕒</Text>
-                          <Text style={styles.detailLabel}>Timestamp:</Text>
-                          <Text style={styles.detailText}>
-                            {new Date(item.timestamp).toLocaleString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </Text>
-                        </View>
-                      </View>
-                      {index < stages.length - 1 && <View style={styles.connector} />}
-                    </View>
-                  )}
-                />
+                      </Animated.View>
+                    )}
+                  />
+                </View>
               ) : (
                 <View style={styles.emptyState}>
-                  <Text style={styles.emptyIcon}>📦</Text>
+                  <Ionicons name="cube-outline" size={64} color="#9CA3AF" />
                   <Text style={styles.emptyTitle}>No Stages Found</Text>
                   <Text style={styles.emptyDescription}>
                     No supply chain stages found for this product
@@ -174,9 +246,15 @@ export default function Scanner() {
 
               <TouchableOpacity 
                 style={styles.scanButton} 
-                onPress={() => setScanned(false)}
+                onPress={() => {
+                  setScanned(false);
+                  setStages([]);
+                  setProductInfo(null);
+                  fadeAnim.setValue(0);
+                }}
               >
-                <Text style={styles.scanButtonText}>🔍 Scan Another Product</Text>
+                <Ionicons name="scan" size={20} color="#FFFFFF" />
+                <Text style={styles.scanButtonText}>Scan Another Product</Text>
               </TouchableOpacity>
             </>
           )}
@@ -297,6 +375,11 @@ const styles = StyleSheet.create({
     padding: 24,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
   headerTitle: {
     fontSize: 26,
@@ -307,84 +390,128 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 15,
     color: '#6B7280',
+    marginBottom: 16,
   },
   productInfoCard: {
-    marginTop: 16,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F8FAFF',
     padding: 16,
     borderRadius: 12,
     borderLeftWidth: 4,
     borderLeftColor: '#4F46E5',
   },
+  productHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   productName: {
     fontSize: 18,
     fontWeight: '600',
     color: '#111827',
-    marginBottom: 6,
+    marginLeft: 8,
+  },
+  batchInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   batchCode: {
     fontSize: 14,
     color: '#6B7280',
     fontFamily: 'monospace',
+    marginLeft: 6,
+  },
+  timelineContainer: {
+    flex: 1,
   },
   listContent: {
     padding: 20,
     paddingBottom: 100,
   },
   stageCard: {
-    flexDirection: 'row',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    padding: 0,
+    marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-    position: 'relative',
-    borderLeftWidth: 3,
-    borderLeftColor: '#4F46E5',
+    shadowRadius: 12,
+    elevation: 4,
+    overflow: 'hidden',
+    borderLeftWidth: 0,
   },
-  stageNumber: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#4F46E5',
+  stageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    paddingBottom: 16,
+    backgroundColor: '#FAFBFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  stageIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#EEF2FF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 12,
   },
-  stageNumberText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
+  stageIcon: {
+    fontSize: 20,
   },
-  stageContent: {
+  stageTitleContainer: {
     flex: 1,
   },
   stageName: {
     fontSize: 18,
     fontWeight: '600',
     color: '#111827',
-    marginBottom: 12,
+    marginBottom: 6,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  stageNumber: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#4F46E5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stageNumberText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  stageContent: {
+    padding: 20,
+  },
+  detailSection: {
+    marginBottom: 16,
   },
   detailRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-    flexWrap: 'wrap',
-  },
-  detailIcon: {
-    fontSize: 14,
-    marginRight: 6,
-    marginTop: 2,
+    alignItems: 'center',
+    marginBottom: 12,
   },
   detailLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: '#374151',
+    marginLeft: 8,
     marginRight: 6,
+    width: 80,
   },
   detailText: {
     fontSize: 14,
@@ -392,13 +519,44 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 20,
   },
+  notesSection: {
+    backgroundColor: '#F8FAFF',
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 3,
+    borderLeftColor: '#4F46E5',
+  },
+  noteItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  noteLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    marginLeft: 6,
+    marginRight: 6,
+    width: 80,
+  },
+  noteText: {
+    fontSize: 13,
+    color: '#6B7280',
+    flex: 1,
+    lineHeight: 18,
+  },
   connector: {
-    position: 'absolute',
-    left: 41,
-    top: '100%',
+    alignItems: 'center',
+    marginTop: -10,
+  },
+  connectorLine: {
     width: 2,
     height: 16,
     backgroundColor: '#E5E7EB',
+    marginBottom: 4,
+  },
+  connectorIcon: {
+    opacity: 0.7,
   },
   emptyState: {
     flex: 1,
@@ -406,14 +564,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 40,
   },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
   emptyTitle: {
     fontSize: 20,
     fontWeight: '600',
     color: '#111827',
+    marginTop: 16,
     marginBottom: 8,
   },
   emptyDescription: {
@@ -436,10 +591,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 5,
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   scanButtonText: {
     color: '#FFFFFF',
     fontSize: 17,
     fontWeight: '600',
+    marginLeft: 8,
   },
 });
