@@ -221,9 +221,6 @@ const handleLogout = async () => {
   }
 };
 
-
-
-
   const handleScroll = (event) => {
     const scrollY = event.nativeEvent.contentOffset.y;
     headerScroll.setValue(scrollY);
