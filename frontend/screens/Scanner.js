@@ -9,6 +9,7 @@ export default function Scanner() {
   const [scanned, setScanned] = useState(false);
   const [loading, setLoading] = useState(false);
   const [stages, setStages] = useState([]);
+  const [productInfo, setProductInfo] = useState(null);
 
   useEffect(() => {
     if (!permission) requestPermission();
@@ -22,7 +23,16 @@ export default function Scanner() {
 
     try {
       const response = await axios.get(`${apiConfig.baseURL}/supply-chain/batch/${batch_code}`);
-      setStages(response.data);
+      const stagesData = response.data;
+      setStages(stagesData);
+      
+      // Extract product info from first stage
+      if (stagesData.length > 0) {
+        setProductInfo({
+          name: stagesData[0].product_name,
+          batch_code: stagesData[0].batch_code
+        });
+      }
     } catch (error) {
       console.error(error);
       const errorMessage = error.response?.status === 404 
@@ -85,6 +95,12 @@ export default function Scanner() {
               <View style={styles.header}>
                 <Text style={styles.headerTitle}>🔗 Supply Chain Stages</Text>
                 <Text style={styles.headerSubtitle}>Track your product journey</Text>
+                {productInfo && (
+                  <View style={styles.productInfoCard}>
+                    <Text style={styles.productName}>📦 {productInfo.name}</Text>
+                    <Text style={styles.batchCode}>Batch: {productInfo.batch_code}</Text>
+                  </View>
+                )}
               </View>
 
               {stages.length > 0 ? (
@@ -99,9 +115,47 @@ export default function Scanner() {
                       </View>
                       <View style={styles.stageContent}>
                         <Text style={styles.stageName}>{item.stage_name}</Text>
-                        <View style={styles.locationContainer}>
-                          <Text style={styles.locationIcon}>📍</Text>
-                          <Text style={styles.locationText}>{item.location}</Text>
+                        
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailIcon}>📍</Text>
+                          <Text style={styles.detailLabel}>Location:</Text>
+                          <Text style={styles.detailText}>{item.location}</Text>
+                        </View>
+                        
+                        {item.description && (
+                          <View style={styles.detailRow}>
+                            <Text style={styles.detailIcon}>📝</Text>
+                            <Text style={styles.detailLabel}>Description:</Text>
+                            <Text style={styles.detailText}>{item.description}</Text>
+                          </View>
+                        )}
+                        
+                        {item.notes && (
+                          <View style={styles.detailRow}>
+                            <Text style={styles.detailIcon}>💬</Text>
+                            <Text style={styles.detailLabel}>Notes:</Text>
+                            <Text style={styles.detailText}>{item.notes}</Text>
+                          </View>
+                        )}
+                        
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailIcon}>👤</Text>
+                          <Text style={styles.detailLabel}>Updated by:</Text>
+                          <Text style={styles.detailText}>{item.updated_by_name}</Text>
+                        </View>
+                        
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailIcon}>🕒</Text>
+                          <Text style={styles.detailLabel}>Timestamp:</Text>
+                          <Text style={styles.detailText}>
+                            {new Date(item.timestamp).toLocaleString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </Text>
                         </View>
                       </View>
                       {index < stages.length - 1 && <View style={styles.connector} />}
@@ -254,6 +308,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#6B7280',
   },
+  productInfoCard: {
+    marginTop: 16,
+    backgroundColor: '#F3F4F6',
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4F46E5',
+  },
+  productName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 6,
+  },
+  batchCode: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontFamily: 'monospace',
+  },
   listContent: {
     padding: 20,
     paddingBottom: 100,
@@ -270,6 +343,8 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
     position: 'relative',
+    borderLeftWidth: 3,
+    borderLeftColor: '#4F46E5',
   },
   stageNumber: {
     width: 44,
@@ -292,26 +367,37 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#111827',
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  locationContainer: {
+  detailRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+    flexWrap: 'wrap',
   },
-  locationIcon: {
+  detailIcon: {
     fontSize: 14,
     marginRight: 6,
+    marginTop: 2,
   },
-  locationText: {
-    fontSize: 15,
+  detailLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginRight: 6,
+  },
+  detailText: {
+    fontSize: 14,
     color: '#6B7280',
+    flex: 1,
+    lineHeight: 20,
   },
   connector: {
     position: 'absolute',
     left: 41,
-    top: 64,
+    top: '100%',
     width: 2,
-    height: 32,
+    height: 16,
     backgroundColor: '#E5E7EB',
   },
   emptyState: {

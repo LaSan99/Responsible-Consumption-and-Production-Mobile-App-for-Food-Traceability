@@ -252,6 +252,24 @@ export default function ProductDetailScreen({ route, navigation }) {
               </LinearGradient>
             </TouchableOpacity>
 
+            {/* Check Expiry Button */}
+            <TouchableOpacity 
+              style={styles.checkExpiryButton}
+              onPress={() => navigation.navigate('ProductDetailWeather', { 
+                productId, 
+                productName: product.name 
+              })}
+            >
+              <LinearGradient
+                colors={['#FF9800', '#F57C00']}
+                style={styles.checkExpiryButtonGradient}
+              >
+                <Ionicons name="warning-outline" size={20} color="#fff" />
+                <Text style={styles.checkExpiryButtonText}>Check Expiry</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            {/* Certificate Management Button */}
             <TouchableOpacity 
               style={styles.secondaryButton}
               onPress={() => navigation.navigate('ProductCertificationManagement', { 
@@ -515,6 +533,28 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   primaryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  checkExpiryButton: {
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#FF9800',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  checkExpiryButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+  },
+  checkExpiryButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
