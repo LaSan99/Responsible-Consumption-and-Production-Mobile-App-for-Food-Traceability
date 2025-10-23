@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,10 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
+import QRCode from 'react-native-qrcode-svg';
+import ViewShot from 'react-native-view-shot';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as MediaLibrary from 'expo-media-library';
 import apiConfig from '../config/api';
 
 const { width, height } = Dimensions.get('window');
@@ -35,6 +39,8 @@ export default function AddProductScreen({ navigation }) {
   const [isLoading, setIsLoading] = useState(false);
   const [focusedField, setFocusedField] = useState('');
   const [productImage, setProductImage] = useState(null);
+  const [qrCodeData, setQrCodeData] = useState(null);
+  const qrCodeRef = useRef(null);
 
   const generateBatchCode = () => {
     const timestamp = Date.now();
@@ -62,6 +68,31 @@ export default function AddProductScreen({ navigation }) {
       }));
     }
   }, [productData.name]);
+
+  // Generate QR code data when batch code changes (QR contains only batch number)
+  useEffect(() => {
+    if (productData.batch_code) {
+      // QR code contains only the batch number
+      console.log('Setting QR code data to:', productData.batch_code);
+      setQrCodeData(productData.batch_code);
+    }
+  }, [productData.batch_code]);
+
+  const captureQRCode = async () => {
+    try {
+      if (qrCodeRef.current) {
+        console.log('Capturing QR code...');
+        const uri = await qrCodeRef.current.capture();
+        console.log('QR code captured successfully:', uri);
+        return uri;
+      }
+      console.log('QR code ref not available');
+      return null;
+    } catch (error) {
+      console.error('Error capturing QR code:', error);
+      return null;
+    }
+  };
 
   const handleInputChange = (field, value) => {
     setProductData(prev => ({
@@ -191,6 +222,11 @@ export default function AddProductScreen({ navigation }) {
     try {
       const token = await AsyncStorage.getItem('token');
       
+      // Capture QR code image
+      console.log('Starting QR code capture...');
+      const qrCodeImageUri = await captureQRCode();
+      console.log('QR code capture result:', qrCodeImageUri);
+      
       // Create FormData for file upload
       const formData = new FormData();
       formData.append('name', productData.name.trim());
@@ -200,8 +236,10 @@ export default function AddProductScreen({ navigation }) {
       formData.append('origin', productData.origin.trim());
       formData.append('harvest_date', productData.harvest_date.trim());
       formData.append('expiry_date', productData.expiry_date.trim());
+      formData.append('qr_code_data', qrCodeData);
+      console.log('QR code data being sent:', qrCodeData);
       
-      // Add image if selected
+      // Add product image if selected
       if (productImage) {
         console.log('Adding image to form data:', productImage);
         formData.append('product_image', {
@@ -211,6 +249,16 @@ export default function AddProductScreen({ navigation }) {
         });
       } else {
         console.log('No image selected');
+      }
+
+      // Add QR code image if generated
+      if (qrCodeImageUri) {
+        console.log('Adding QR code image to form data:', qrCodeImageUri);
+        formData.append('qr_code_image', {
+          uri: qrCodeImageUri,
+          type: 'image/png',
+          name: `qr_code_${productData.batch_code}.png`,
+        });
       }
       
       const response = await axios.post(
@@ -388,6 +436,34 @@ export default function AddProductScreen({ navigation }) {
               'default',
               true,
               4
+            )}
+
+            {/* QR Code Preview Section */}
+            {qrCodeData && (
+              <View style={styles.qrCodeSection}>
+                <Text style={styles.qrCodeSectionTitle}>QR Code Preview</Text>
+                <Text style={styles.qrCodeSectionSubtitle}>
+                  This QR code contains only the batch number: {productData.batch_code}
+                </Text>
+                {console.log('Rendering QR code section with data:', qrCodeData)}
+                <View style={styles.qrCodeContainer}>
+                  <ViewShot ref={qrCodeRef} options={{ format: "png", quality: 0.9 }}>
+                    <View style={styles.qrCodeWrapper}>
+                      <QRCode
+                        value={qrCodeData}
+                        size={200}
+                        color="#000000"
+                        backgroundColor="#FFFFFF"
+                        logoSize={30}
+                        logoMargin={2}
+                        logoBorderRadius={15}
+                        quietZone={10}
+                      />
+                      <Text style={styles.qrCodeLabel}>Batch: {productData.batch_code}</Text>
+                    </View>
+                  </ViewShot>
+                </View>
+              </View>
             )}
 
             {/* Product Photo Section */}
@@ -683,5 +759,47 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: 8,
     textAlign: 'center',
+  },
+  qrCodeSection: {
+    marginBottom: 20,
+  },
+  qrCodeSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 5,
+  },
+  qrCodeSectionSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 15,
+  },
+  qrCodeContainer: {
+    alignItems: 'center',
+    backgroundColor: '#f8f8f8',
+    borderRadius: 12,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  qrCodeWrapper: {
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  qrCodeLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 8,
+    fontWeight: '500',
   },
 });

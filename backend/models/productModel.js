@@ -1,12 +1,12 @@
 const db = require('../db');
 
 const Product = {
-  create: (name, batch_code, description, created_by, category, origin, harvest_date, expiry_date, product_image, callback) => {
-    console.log('Creating product with image:', product_image);
-    // First try with new columns including image
+  create: (name, batch_code, description, created_by, category, origin, harvest_date, expiry_date, product_image, qr_code_image, qr_code_data, callback) => {
+    console.log('Creating product with image:', product_image, 'and QR code:', qr_code_image);
+    // First try with new columns including image and QR code
     db.query(
-      'INSERT INTO products (name, batch_code, description, created_by, category, origin, harvest_date, expiry_date, product_image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [name, batch_code, description, created_by, category || null, origin || null, harvest_date || null, expiry_date || null, product_image || null],
+      'INSERT INTO products (name, batch_code, description, created_by, category, origin, harvest_date, expiry_date, product_image, qr_code_image, qr_code_data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [name, batch_code, description, created_by, category || null, origin || null, harvest_date || null, expiry_date || null, product_image || null, qr_code_image || null, qr_code_data || null],
       (err, results) => {
         if (err) {
           console.log('Database insert error:', err);
@@ -39,6 +39,8 @@ const Product = {
               COALESCE(p.expiry_date, '') as expiry_date, 
               COALESCE(p.location, '') as location,
               COALESCE(p.product_image, '') as product_image,
+              COALESCE(p.qr_code_image, '') as qr_code_image,
+              COALESCE(p.qr_code_data, '') as qr_code_data,
               u.full_name AS created_by_name
        FROM products p
        JOIN users u ON p.created_by = u.id`,
@@ -84,6 +86,8 @@ const Product = {
               COALESCE(p.harvest_date, '') as harvest_date, 
               COALESCE(p.expiry_date, '') as expiry_date, 
               COALESCE(p.product_image, '') as product_image,
+              COALESCE(p.qr_code_image, '') as qr_code_image,
+              COALESCE(p.qr_code_data, '') as qr_code_data,
               p.created_by, u.full_name AS created_by_name
        FROM products p
        JOIN users u ON p.created_by = u.id
