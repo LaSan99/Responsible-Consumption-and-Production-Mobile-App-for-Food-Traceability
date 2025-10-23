@@ -11,6 +11,7 @@ import {
   Alert,
   Animated,
   RefreshControl,
+  Image,
 } from "react-native";
 import axios from "axios";
 import apiConfig from "../config/api";
@@ -50,6 +51,17 @@ const ProductCard = ({ product, onPress, index }) => {
         },
       ]}
     >
+      {/* Product Image */}
+      {product.product_image && (
+        <View style={styles.productImageContainer}>
+          <Image 
+            source={{ uri: `${apiConfig.baseURL}/${product.product_image.replace(/\\/g, '/')}` }} 
+            style={styles.productImage}
+            resizeMode="cover"
+          />
+        </View>
+      )}
+
       <View style={styles.cardHeader}>
         <View style={styles.cardHeaderLeft}>
           <View style={styles.iconContainer}>
@@ -380,6 +392,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#F3F4F6",
     overflow: "hidden",
+  },
+  productImageContainer: {
+    width: '100%',
+    height: 150,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
   },
   cardHeader: {
     flexDirection: "row",

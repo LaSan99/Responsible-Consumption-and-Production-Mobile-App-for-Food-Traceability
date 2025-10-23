@@ -9,11 +9,14 @@ import {
   Dimensions,
   Alert,
   RefreshControl,
-  Image
+  Image,
+  Share
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
+import * as MediaLibrary from 'expo-media-library';
+import * as FileSystem from 'expo-file-system/legacy';
 import apiConfig from "../config/api";
 
 const { width, height } = Dimensions.get('window');
@@ -51,6 +54,92 @@ export default function ProductDetailScreen({ route, navigation }) {
     if (!dateString) return 'Not specified';
     const date = new Date(dateString);
     return date.toLocaleDateString();
+  };
+
+  const downloadQRCode = async () => {
+    if (!product.qr_code_image) {
+      Alert.alert('Error', 'QR code image not available');
+      return;
+    }
+
+    try {
+      // Check and request permission to save to media library
+      const { status: currentStatus } = await MediaLibrary.getPermissionsAsync();
+      let finalStatus = currentStatus;
+
+      if (currentStatus !== 'granted') {
+        const { status } = await MediaLibrary.requestPermissionsAsync();
+        finalStatus = status;
+      }
+
+      if (finalStatus !== 'granted') {
+        Alert.alert(
+          'Permission Required', 
+          'Please grant permission to save images to your gallery in Settings.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => MediaLibrary.requestPermissionsAsync() }
+          ]
+        );
+        return;
+      }
+
+      // Download the QR code image using legacy FileSystem API
+      const qrCodeUrl = `${apiConfig.baseURL}/${product.qr_code_image.replace(/\\/g, '/')}`;
+      const fileName = `qr_code_${product.batch_code}.png`;
+      const fileUri = FileSystem.documentDirectory + fileName;
+      
+      console.log('Downloading QR code from:', qrCodeUrl);
+      console.log('Saving to:', fileUri);
+      
+      const downloadResult = await FileSystem.downloadAsync(qrCodeUrl, fileUri);
+
+      if (downloadResult.status === 200) {
+        console.log('QR code downloaded successfully');
+        
+        // Save to media library
+        const asset = await MediaLibrary.createAssetAsync(downloadResult.uri);
+        console.log('Asset created:', asset);
+        
+        // Try to create album, but don't fail if it already exists
+        try {
+          await MediaLibrary.createAlbumAsync('Food Traceability QR Codes', asset, false);
+        } catch (albumError) {
+          console.log('Album creation failed (might already exist):', albumError);
+          // Continue anyway, the asset is still saved
+        }
+        
+        Alert.alert(
+          'Success!',
+          'QR code has been saved to your gallery.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        throw new Error(`Failed to download QR code. Status: ${downloadResult.status}`);
+      }
+    } catch (error) {
+      console.error('Error downloading QR code:', error);
+      Alert.alert('Error', `Failed to download QR code: ${error.message}`);
+    }
+  };
+
+  const shareQRCode = async () => {
+    if (!product.qr_code_image) {
+      Alert.alert('Error', 'QR code image not available');
+      return;
+    }
+
+    try {
+      const qrCodeUrl = `${apiConfig.baseURL}/${product.qr_code_image.replace(/\\/g, '/')}`;
+      await Share.share({
+        message: `QR Code for ${product.name} (Batch: ${product.batch_code})`,
+        url: qrCodeUrl,
+        title: `QR Code - ${product.name}`
+      });
+    } catch (error) {
+      console.error('Error sharing QR code:', error);
+      Alert.alert('Error', 'Failed to share QR code. Please try again.');
+    }
   };
 
   const getProductIcon = (productName) => {
@@ -126,17 +215,29 @@ export default function ProductDetailScreen({ route, navigation }) {
         >
           {/* Product Image */}
           <View style={styles.imageContainer}>
-            {product.image && !imageError ? (
+            {product.product_image && !imageError ? (
               <Image 
-                source={{ uri: product.image }}
+                source={{ uri: `${apiConfig.baseURL}/${product.product_image.replace(/\\/g, '/')}` }}
                 style={styles.productImage}
                 resizeMode="cover"
-                onError={() => setImageError(true)}
+                onError={(error) => {
+                  console.log('Image load error:', error);
+                  console.log('Image URL:', `${apiConfig.baseURL}/${product.product_image.replace(/\\/g, '/')}`);
+                  setImageError(true);
+                }}
+                onLoad={() => console.log('Image loaded successfully:', `${apiConfig.baseURL}/${product.product_image.replace(/\\/g, '/')}`)}
               />
             ) : (
               <View style={styles.placeholderImage}>
                 <Text style={styles.placeholderIcon}>{getProductIcon(product.name)}</Text>
-                <Text style={styles.placeholderText}>No Image</Text>
+                <Text style={styles.placeholderText}>
+                  {product.product_image ? 'Image Load Error' : 'No Image'}
+                </Text>
+                {product.product_image && (
+                  <Text style={styles.debugText}>
+                    URL: {`${apiConfig.baseURL}/${product.product_image.replace(/\\/g, '/')}`}
+                  </Text>
+                )}
               </View>
             )}
           </View>
@@ -222,6 +323,50 @@ export default function ProductDetailScreen({ route, navigation }) {
             </View>
           </View>
 
+          {/* QR Code Section */}
+          {product.qr_code_image && (
+            <View style={styles.qrCodeCard}>
+              <View style={styles.qrCodeHeader}>
+                <Ionicons name="qr-code-outline" size={24} color="#9C27B0" />
+                <Text style={styles.qrCodeTitle}>Product QR Code</Text>
+              </View>
+              <View style={styles.qrCodeContainer}>
+                <Image 
+                  source={{ uri: `${apiConfig.baseURL}/${product.qr_code_image.replace(/\\/g, '/')}` }}
+                  style={styles.qrCodeImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.qrCodeBatch}>Batch: {product.batch_code}</Text>
+              </View>
+              <View style={styles.qrCodeActions}>
+                <TouchableOpacity 
+                  style={styles.downloadButton}
+                  onPress={downloadQRCode}
+                >
+                  <LinearGradient
+                    colors={['#4CAF50', '#45a049']}
+                    style={styles.downloadButtonGradient}
+                  >
+                    <Ionicons name="download-outline" size={18} color="#fff" />
+                    <Text style={styles.downloadButtonText}>Download</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.shareButton}
+                  onPress={shareQRCode}
+                >
+                  <LinearGradient
+                    colors={['#2196F3', '#1976D2']}
+                    style={styles.shareButtonGradient}
+                  >
+                    <Ionicons name="share-outline" size={18} color="#fff" />
+                    <Text style={styles.shareButtonText}>Share</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
           {/* Action Buttons */}
           <View style={styles.actionButtonsContainer}>
             <TouchableOpacity 
@@ -240,7 +385,25 @@ export default function ProductDetailScreen({ route, navigation }) {
               </LinearGradient>
             </TouchableOpacity>
 
+            {/* Check Expiry Button */}
             <TouchableOpacity 
+              style={styles.checkExpiryButton}
+              onPress={() => navigation.navigate('ProductDetailWeather', { 
+                productId, 
+                productName: product.name 
+              })}
+            >
+              <LinearGradient
+                colors={['#FF9800', '#F57C00']}
+                style={styles.checkExpiryButtonGradient}
+              >
+                <Ionicons name="warning-outline" size={20} color="#fff" />
+                <Text style={styles.checkExpiryButtonText}>Check Expiry</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            {/* Certificate Management Button */}
+            {/* <TouchableOpacity 
               style={styles.secondaryButton}
               onPress={() => navigation.navigate('ProductCertificationManagement', { 
                 productId, 
@@ -254,7 +417,25 @@ export default function ProductDetailScreen({ route, navigation }) {
                 <Ionicons name="settings-outline" size={20} color="#fff" />
                 <Text style={styles.secondaryButtonText}>Manage Certifications</Text>
               </LinearGradient>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
+
+            {/* Blockchain Button */}
+            {/* <TouchableOpacity 
+              style={styles.blockchainButton}
+              onPress={() => navigation.navigate('BlockchainStages', { 
+                productId, 
+                productName: product.name,
+                batchCode: product.batch_code
+              })}
+            >
+              <LinearGradient
+                colors={['#9C27B0', '#7B1FA2']}
+                style={styles.blockchainButtonGradient}
+              >
+                <Ionicons name="link-outline" size={20} color="#fff" />
+                <Text style={styles.blockchainButtonText}>View Blockchain</Text>
+              </LinearGradient>
+            </TouchableOpacity> */}
           </View>
 
           {/* Additional Info Card */}
@@ -390,6 +571,12 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     fontWeight: '500',
   },
+  debugText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 8,
+    textAlign: 'center',
+  },
   productCard: {
     backgroundColor: '#fff',
     marginHorizontal: 20,
@@ -502,6 +689,28 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 8,
   },
+  checkExpiryButton: {
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#FF9800',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  checkExpiryButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+  },
+  checkExpiryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
   secondaryButton: {
     borderRadius: 12,
     shadowColor: '#2196F3',
@@ -552,5 +761,120 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     lineHeight: 20,
+  },
+  qrCodeCard: {
+    backgroundColor: '#fff',
+    marginHorizontal: 20,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4CAF50',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  qrCodeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  qrCodeTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginLeft: 8,
+  },
+  qrCodeContainer: {
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+  },
+  qrCodeImage: {
+    width: 200,
+    height: 200,
+    marginBottom: 12,
+  },
+  qrCodeBatch: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+    fontFamily: 'monospace',
+  },
+  qrCodeActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  downloadButton: {
+    flex: 1,
+    marginRight: 8,
+    borderRadius: 8,
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  downloadButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  downloadButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  shareButton: {
+    flex: 1,
+    marginLeft: 8,
+    borderRadius: 8,
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  shareButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  shareButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  blockchainButton: {
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#9C27B0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  blockchainButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+  },
+  blockchainButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
   },
 });

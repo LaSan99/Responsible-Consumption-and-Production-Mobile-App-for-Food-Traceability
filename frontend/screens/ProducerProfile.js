@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,12 @@ import {
   Alert,
   Dimensions,
   ActivityIndicator,
+  Animated,
+  RefreshControl,
+  StatusBar,
+  Image,
+  FlatList,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,14 +23,75 @@ import apiConfig from '../config/api';
 
 const { width, height } = Dimensions.get('window');
 
+// Sample farmer images - Replace with your actual images
+const FARMER_IMAGES = [
+  {
+    id: '1',
+    image: 'https://i.postimg.cc/2yJ55ZWF/image.png',
+    title: 'Organic Farming',
+    subtitle: 'Sustainable agriculture practices'
+  },
+  {
+    id: '2',
+    image: 'https://images.unsplash.com/photo-1574943320219-553eb213f72d?w=500&q=80',
+    title: 'Fresh Harvest',
+    subtitle: 'Daily fresh produce collection'
+  },
+  {
+    id: '3',
+    image: 'https://i.postimg.cc/mZ1FFLdn/image.png',
+    title: 'Quality Control',
+    subtitle: 'Rigorous quality checks'
+  },
+  {
+    id: '4',
+    image: 'https://i.postimg.cc/9f9v7q7M/image.png',
+    title: 'Farm to Table',
+    subtitle: 'Direct from our farms to you'
+  }
+];
+
 export default function ProducerProfile({ navigation }) {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [products, setProducts] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [productModalVisible, setProductModalVisible] = useState(false);
+  const [modalType, setModalType] = useState(''); // 'stages' or 'certifications'
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const flatListRef = useRef(null);
+  const imageSliderRef = useRef(null);
 
   useEffect(() => {
     loadUserData();
     loadProducerProducts();
+    startImageSlider();
+  }, []);
+
+  // Auto-slide images with slower speed (6 seconds)
+  const startImageSlider = () => {
+    const interval = setInterval(() => {
+      setCurrentImageIndex(prevIndex => 
+        prevIndex === FARMER_IMAGES.length - 1 ? 0 : prevIndex + 1
+      );
+    }, 6000); // Changed from 4000 to 6000 for slower slides
+    return () => clearInterval(interval);
+  };
+
+  useEffect(() => {
+    if (imageSliderRef.current) {
+      imageSliderRef.current.scrollToIndex({
+        index: currentImageIndex,
+        animated: true,
+      });
+    }
+  }, [currentImageIndex]);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([loadUserData(), loadProducerProducts()]);
+    setRefreshing(false);
   }, []);
 
   const loadUserData = async () => {
@@ -63,7 +130,6 @@ export default function ProducerProfile({ navigation }) {
           style: 'destructive',
           onPress: async () => {
             await AsyncStorage.multiRemove(['token', 'user']);
-            // App.js will automatically detect the change and navigate to login
           },
         },
       ]
@@ -89,27 +155,89 @@ export default function ProducerProfile({ navigation }) {
     }
     
     if (products.length === 1) {
-      // Navigate directly if only one product
       navigation.navigate('BlockchainStages', {
         productId: products[0].id,
         productName: products[0].name
       });
     } else {
-      // Show product selection if multiple products
-      Alert.alert(
-        'Select Product',
-        'Choose a product to manage its blockchain stages:',
-        [
-          ...products.slice(0, 3).map(product => ({
-            text: product.name,
-            onPress: () => navigation.navigate('BlockchainStages', {
-              productId: product.id,
-              productName: product.name
-            })
-          })),
-          { text: 'Cancel', style: 'cancel' }
-        ]
-      );
+      setModalType('stages');
+      setProductModalVisible(true);
+    }
+  };
+
+  // Animation values
+  const headerHeight = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [300, 200], // Reduced height since profile is moved down
+    extrapolate: 'clamp',
+  });
+
+  const imageSliderOpacity = scrollY.interpolate({
+    inputRange: [0, 80, 150],
+    outputRange: [1, 0.5, 0],
+    extrapolate: 'clamp',
+  });
+
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 80, 150],
+    outputRange: [1, 0.8, 0],
+    extrapolate: 'clamp',
+  });
+
+  const titleOpacity = scrollY.interpolate({
+    inputRange: [0, 80, 150],
+    outputRange: [0, 0.5, 1],
+    extrapolate: 'clamp',
+  });
+
+  const titleTranslateY = scrollY.interpolate({
+    inputRange: [0, 150],
+    outputRange: [20, 0],
+    extrapolate: 'clamp',
+  });
+
+  const renderImageItem = ({ item, index }) => (
+    <View style={styles.imageSlide}>
+      <Image 
+        source={{ uri: item.image }} 
+        style={styles.sliderImage}
+        resizeMode="cover"
+      />
+      <LinearGradient
+        colors={['transparent', 'rgba(0,0,0,0.7)']}
+        style={styles.imageOverlay}
+      >
+        <View style={styles.imageTextContainer}>
+          <Text style={styles.imageTitle}>{item.title}</Text>
+          <Text style={styles.imageSubtitle}>{item.subtitle}</Text>
+        </View>
+      </LinearGradient>
+    </View>
+  );
+
+  const onImageScroll = (event) => {
+    const slideSize = event.nativeEvent.layoutMeasurement.width;
+    const index = event.nativeEvent.contentOffset.x / slideSize;
+    const roundIndex = Math.round(index);
+    setCurrentImageIndex(roundIndex);
+  };
+
+  // Function to calculate time ago
+  const getTimeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now - date;
+    const diffInHours = diffInMs / (1000 * 60 * 60);
+    const diffInDays = diffInHours / 24;
+
+    if (diffInHours < 1) {
+      return 'Just now';
+    } else if (diffInHours < 24) {
+      return `${Math.floor(diffInHours)} hours ago`;
+    } else if (diffInDays < 7) {
+      return `${Math.floor(diffInDays)} days ago`;
+    } else {
+      return date.toLocaleDateString();
     }
   };
 
@@ -123,387 +251,970 @@ export default function ProducerProfile({ navigation }) {
   }
 
   return (
-    <LinearGradient
-      colors={['#4CAF50', '#8BC34A', '#CDDC39']}
-      style={styles.gradient}
-    >
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.profileSection}>
-            <View style={styles.avatarContainer}>
-              <Ionicons name="person" size={40} color="#fff" />
-            </View>
-            <Text style={styles.welcomeText}>Welcome back!</Text>
-            <Text style={styles.nameText}>{user?.full_name || 'Producer'}</Text>
-            <View style={styles.roleContainer}>
-              <Ionicons name="leaf" size={16} color="#4CAF50" />
-              <Text style={styles.roleText}>Producer</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Quick Stats */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Ionicons name="cube-outline" size={24} color="#4CAF50" />
-            <Text style={styles.statNumber}>{products.length}</Text>
-            <Text style={styles.statLabel}>Products</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons name="trending-up-outline" size={24} color="#FF9800" />
-            <Text style={styles.statNumber}>0</Text>
-            <Text style={styles.statLabel}>Orders</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons name="checkmark-circle-outline" size={24} color="#2196F3" />
-            <Text style={styles.statNumber}>0</Text>
-            <Text style={styles.statLabel}>Certifications</Text>
-          </View>
-        </View>
-
-        {/* Action Cards */}
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={navigateToAddProduct}
-          >
-            <LinearGradient
-              colors={['#4CAF50', '#45a049']}
-              style={styles.actionGradient}
-            >
-              <Ionicons name="add-circle-outline" size={32} color="#fff" />
-              <Text style={styles.actionTitle}>Add Product</Text>
-              <Text style={styles.actionSubtitle}>List a new product</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={navigateToManageProducts}
-          >
-            <LinearGradient
-              colors={['#2196F3', '#1976D2']}
-              style={styles.actionGradient}
-            >
-              <Ionicons name="cube-outline" size={32} color="#fff" />
-              <Text style={styles.actionTitle}>Manage Products</Text>
-              <Text style={styles.actionSubtitle}>View & edit products</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={navigateToSupplyChain}
-          >
-            <LinearGradient
-              colors={['#FF9800', '#F57C00']}
-              style={styles.actionGradient}
-            >
-              <Ionicons name="git-network-outline" size={32} color="#fff" />
-              <Text style={styles.actionTitle}>Blockchain Stages</Text>
-              <Text style={styles.actionSubtitle}>Manage supply chain</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => {
-              if (products.length === 0) {
-                Alert.alert(
-                  'No Products',
-                  'You need to add products first before managing certifications.',
-                  [{ text: 'Add Product', onPress: navigateToAddProduct }]
-                );
-                return;
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#4CAF50" />
+      
+      {/* Fixed Header with Logout ONLY */}
+      <Animated.View style={[styles.fixedHeader, { opacity: titleOpacity }]}>
+        <View style={styles.headerContent}>
+          <Animated.Text 
+            style={[
+              styles.headerTitle,
+              { 
+                opacity: titleOpacity,
+                transform: [{ translateY: titleTranslateY }]
               }
-              
-              if (products.length === 1) {
-                // Navigate directly if only one product
-                navigation.navigate('ProductCertificationManagement', {
-                  productId: products[0].id,
-                  productName: products[0].name
-                });
-              } else {
-                // Show product selection if multiple products
-                Alert.alert(
-                  'Select Product',
-                  'Choose a product to manage its certifications:',
-                  [
-                    ...products.slice(0, 3).map(product => ({
-                      text: product.name,
-                      onPress: () => navigation.navigate('ProductCertificationManagement', {
-                        productId: product.id,
-                        productName: product.name
-                      })
-                    })),
-                    { text: 'Cancel', style: 'cancel' }
-                  ]
-                );
-              }
-            }}
+            ]}
           >
-            <LinearGradient
-              colors={['#9C27B0', '#7B1FA2']}
-              style={styles.actionGradient}
-            >
-              <Ionicons name="ribbon-outline" size={32} color="#fff" />
-              <Text style={styles.actionTitle}>Certifications</Text>
-              <Text style={styles.actionSubtitle}>Manage certificates</Text>
-            </LinearGradient>
+            Profile
+          </Animated.Text>
+          <TouchableOpacity 
+            style={styles.logoutButtonHeader}
+            onPress={handleLogout}
+          >
+            <Ionicons name="log-out-outline" size={22} color="#fff" />
           </TouchableOpacity>
         </View>
+      </Animated.View>
 
-        {/* Recent Products */}
-        <View style={styles.recentSection}>
-          <Text style={styles.sectionTitle}>Recent Products</Text>
-          {products.length > 0 ? (
-            products.slice(0, 3).map((product, index) => (
-              <View key={index} style={styles.productItem}>
-                <View style={styles.productInfo}>
-                  <Text style={styles.productName}>{product.name}</Text>
-                  <Text style={styles.productCategory}>
-                    {product.category || 'No category'} • Batch: {product.batch_code}
-                  </Text>
-                  {product.origin && (
-                    <Text style={styles.productOrigin}>📍 {product.origin}</Text>
-                  )}
-                </View>
-                <View style={styles.productStatus}>
-                  <Text style={styles.statusText}>Active</Text>
+      <ScrollView 
+        ref={flatListRef}
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#4CAF50']}
+            tintColor="#4CAF50"
+          />
+        }
+      >
+        {/* Image Slider Section - Clean without profile */}
+        <Animated.View 
+          style={[
+            styles.imageSliderSection, 
+            { 
+              height: headerHeight,
+              opacity: imageSliderOpacity 
+            }
+          ]}
+        >
+          <FlatList
+            ref={imageSliderRef}
+            data={FARMER_IMAGES}
+            renderItem={renderImageItem}
+            keyExtractor={(item) => item.id}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={onImageScroll}
+            style={styles.imageSlider}
+          />
+          
+          {/* Image Pagination Dots */}
+          <View style={styles.paginationContainer}>
+            {FARMER_IMAGES.map((_, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.paginationDot,
+                  currentImageIndex === index && styles.paginationDotActive
+                ]}
+                onPress={() => {
+                  setCurrentImageIndex(index);
+                  imageSliderRef.current?.scrollToIndex({ index, animated: true });
+                }}
+              />
+            ))}
+          </View>
+        </Animated.View>
+
+        {/* Profile Section - Moved below slideshow */}
+        <View style={styles.profileSection}>
+          <View style={styles.profileCard}>
+            <View style={styles.profileHeader}>
+              <View style={styles.avatarContainer}>
+                <LinearGradient
+                  colors={['#fff', '#f5f5f5']}
+                  style={styles.avatarGradient}
+                >
+                  <Ionicons name="person" size={36} color="#4CAF50" />
+                </LinearGradient>
+                <View style={styles.verifiedBadge}>
+                  <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
                 </View>
               </View>
-            ))
-          ) : (
-            <View style={styles.emptyState}>
-              <Ionicons name="cube-outline" size={48} color="#ccc" />
-              <Text style={styles.emptyText}>No products yet</Text>
-              <Text style={styles.emptySubtext}>Add your first product to get started</Text>
+              
+              <View style={styles.userInfo}>
+                <Text style={styles.welcomeText}>Welcome back! 👋</Text>
+                <Text style={styles.nameText}>{user?.full_name || 'Producer'}</Text>
+                <View style={styles.roleBadge}>
+                  <Ionicons name="leaf" size={14} color="#fff" />
+                  <Text style={styles.roleText}>Certified Producer</Text>
+                </View>
+              </View>
             </View>
-          )}
+          </View>
         </View>
 
-        {/* Logout Button */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={20} color="#FF5722" />
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
+        {/* Quick Stats Card */}
+        <Animated.View 
+          style={[
+            styles.statsCardContainer,
+            { opacity: headerOpacity }
+          ]}
+        >
+          <View style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <View style={styles.statIconContainer}>
+                <Ionicons name="cube-outline" size={20} color="#4CAF50" />
+              </View>
+              <Text style={styles.statNumber}>{products.length}</Text>
+              <Text style={styles.statLabel}>My Products</Text>
+            </View>
+            
+            <View style={styles.statDivider} />
+            
+            <View style={styles.statItem}>
+              <View style={[styles.statIconContainer, styles.ordersIcon]}>
+                <Ionicons name="trending-up-outline" size={20} color="#FF9800" />
+              </View>
+              <Text style={styles.statNumber}>{products.length}</Text>
+              <Text style={styles.statLabel}>My Products</Text>
+            </View>
+            
+            <View style={styles.statDivider} />
+            
+            <View style={styles.statItem}>
+              <View style={[styles.statIconContainer, styles.certIcon]}>
+                <Ionicons name="ribbon-outline" size={20} color="#2196F3" />
+              </View>
+              <Text style={styles.statNumber}>0</Text>
+              <Text style={styles.statLabel}>Certifications</Text>
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* Main Content */}
+        <View style={styles.content}>
+          {/* Quick Actions Grid */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
+            <View style={styles.sectionDecoration}>
+              <View style={styles.decorationDot} />
+              <View style={styles.decorationDot} />
+              <View style={styles.decorationDot} />
+            </View>
+          </View>
+          
+          <View style={styles.actionsGrid}>
+            {[
+              {
+                title: 'Add Product',
+                subtitle: 'New listing',
+                icon: 'add-circle-outline',
+                colors: ['#4CAF50', '#45a049'],
+                onPress: navigateToAddProduct
+              },
+              {
+                title: 'Manage',
+                subtitle: 'Your products',
+                icon: 'cube-outline',
+                colors: ['#2196F3', '#1976D2'],
+                onPress: navigateToManageProducts
+              },
+              {
+                title: 'Blockchain',
+                subtitle: 'Supply chain',
+                icon: 'git-network-outline',
+                colors: ['#FF9800', '#F57C00'],
+                onPress: navigateToSupplyChain
+              },
+              {
+                title: 'Certificates',
+                subtitle: 'Manage',
+                icon: 'ribbon-outline',
+                colors: ['#9C27B0', '#7B1FA2'],
+                onPress: () => {
+                  if (products.length === 0) {
+                    Alert.alert(
+                      'No Products',
+                      'You need to add products first before managing certifications.',
+                      [{ text: 'Add Product', onPress: navigateToAddProduct }]
+                    );
+                    return;
+                  }
+                  
+                  if (products.length === 1) {
+                    navigation.navigate('ProductCertificationManagement', {
+                      productId: products[0].id,
+                      productName: products[0].name
+                    });
+                  } else {
+                    setModalType('certifications');
+                    setProductModalVisible(true);
+                  }
+                }
+              }
+            ].map((action, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.actionItem}
+                onPress={action.onPress}
+              >
+                <LinearGradient
+                  colors={action.colors}
+                  style={styles.actionIconContainer}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Ionicons name={action.icon} size={28} color="#fff" />
+                </LinearGradient>
+                <Text style={styles.actionTitle}>{action.title}</Text>
+                <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Recent Products Section - Now showing ALL products */}
+          <View style={styles.recentSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>My Products</Text>
+              {products.length > 0 && (
+                <TouchableOpacity 
+                  style={styles.seeAllButton}
+                  onPress={() => navigation.navigate('Products')}
+                >
+                  <Text style={styles.seeAllText}>View All</Text>
+                  <Ionicons name="chevron-forward" size={16} color="#4CAF50" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {products.length > 0 ? (
+              <View style={styles.productsList}>
+                {products.slice(0, 5).map((product, index) => (
+                  <TouchableOpacity 
+                    key={product.id} 
+                    style={styles.productCard}
+                    onPress={() => navigation.navigate('ProductDetail', { productId: product.id })}
+                  >
+                    <View style={styles.productHeader}>
+                      <View style={styles.productIcon}>
+                        <Ionicons name="cube" size={20} color="#4CAF50" />
+                      </View>
+                      <View style={styles.productInfo}>
+                        <Text style={styles.productName}>{product.name}</Text>
+                        <Text style={styles.productCategory}>
+                          {product.category || 'No category'}
+                        </Text>
+                      </View>
+                      <View style={[styles.statusBadge, styles.activeStatus]}>
+                        <Ionicons name="ellipse" size={8} color="#4CAF50" />
+                        <Text style={styles.statusText}>
+                          {product.status || 'Active'}
+                        </Text>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.productDetails}>
+                      <View style={styles.detailItem}>
+                        <Ionicons name="barcode-outline" size={14} color="#666" />
+                        <Text style={styles.detailText}>
+                          Batch: {product.batch_code || 'N/A'}
+                        </Text>
+                      </View>
+                      {product.origin && (
+                        <View style={styles.detailItem}>
+                          <Ionicons name="location-outline" size={14} color="#666" />
+                          <Text style={styles.detailText}>{product.origin}</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    <View style={styles.productFooter}>
+                      <View style={styles.footerItem}>
+                        <Text style={styles.footerLabel}>Producer</Text>
+                        <Text style={styles.footerValue}>
+                          {product.producer_name || user?.full_name || 'Unknown'}
+                        </Text>
+                      </View>
+                      <View style={styles.footerDivider} />
+                      <View style={styles.footerItem}>
+                        <Text style={styles.footerLabel}>Created</Text>
+                        <Text style={styles.footerValue}>
+                          {product.created_at ? getTimeAgo(product.created_at) : 'Unknown'}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.emptyState}>
+                <View style={styles.emptyIconContainer}>
+                  <Ionicons name="cube-outline" size={64} color="#e0e0e0" />
+                </View>
+                <Text style={styles.emptyTitle}>No products available</Text>
+                <Text style={styles.emptySubtitle}>
+                  There are no products in the system yet. Be the first to add one!
+                </Text>
+                <TouchableOpacity 
+                  style={styles.addFirstProductButton}
+                  onPress={navigateToAddProduct}
+                >
+                  <Ionicons name="add" size={20} color="#fff" />
+                  <Text style={styles.addFirstProductText}>Add First Product</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+          {/* Bottom Spacing */}
+          <View style={styles.bottomSpacing} />
+        </View>
       </ScrollView>
-    </LinearGradient>
+
+      {/* Product Selection Modal */}
+      <Modal
+        visible={productModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setProductModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {modalType === 'stages' ? 'Select Product for Blockchain' : 'Select Product for Certifications'}
+              </Text>
+              <TouchableOpacity 
+                onPress={() => setProductModalVisible(false)}
+                style={styles.modalCloseButton}
+              >
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.modalProductList}>
+              {products.map((product) => (
+                <TouchableOpacity
+                  key={product.id}
+                  style={styles.modalProductItem}
+                  onPress={() => {
+                    setProductModalVisible(false);
+                    if (modalType === 'stages') {
+                      navigation.navigate('BlockchainStages', {
+                        productId: product.id,
+                        productName: product.name
+                      });
+                    } else {
+                      navigation.navigate('ProductCertificationManagement', {
+                        productId: product.id,
+                        productName: product.name
+                      });
+                    }
+                  }}
+                >
+                  <View style={styles.modalProductIcon}>
+                    <Ionicons name="cube" size={24} color="#4CAF50" />
+                  </View>
+                  <View style={styles.modalProductInfo}>
+                    <Text style={styles.modalProductName}>{product.name}</Text>
+                    <Text style={styles.modalProductBatch}>
+                      Batch: {product.batch_code || 'N/A'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#999" />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            
+            <TouchableOpacity
+              style={styles.modalCancelButton}
+              onPress={() => setProductModalVisible(false)}
+            >
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
   container: {
     flex: 1,
+    backgroundColor: '#f8f9fa',
+  },
+  fixedHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 100,
+    backgroundColor: '#4CAF50',
+    zIndex: 1000,
     paddingTop: 50,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+    fontFamily: 'System',
+  },
+  logoutButtonHeader: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollView: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f9fa',
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
     color: '#666',
+    fontFamily: 'System',
   },
-  header: {
+  // Image Slider Styles
+  imageSliderSection: {
+    position: 'relative',
+  },
+  imageSlider: {
+    width: width,
+    height: '100%',
+  },
+  imageSlide: {
+    width: width,
+    height: '100%',
+    position: 'relative',
+  },
+  sliderImage: {
+    width: '100%',
+    height: '100%',
+  },
+  imageOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 120,
+    justifyContent: 'flex-end',
+    padding: 20,
+  },
+  imageTextContainer: {
+    marginBottom: 30,
+  },
+  imageTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#fff',
+    fontFamily: 'System',
+    marginBottom: 4,
+  },
+  imageSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontFamily: 'System',
+  },
+  paginationContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 30,
     paddingHorizontal: 20,
   },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    marginHorizontal: 4,
+  },
+  paginationDotActive: {
+    width: 20,
+    backgroundColor: '#fff',
+  },
+  // Profile Section - Moved below slideshow
   profileSection: {
+    paddingHorizontal: 20,
+    marginTop: -40, // Overlap slightly with the image slider
+    zIndex: 5,
+  },
+  profileCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  profileHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
   avatarContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    position: 'relative',
+    marginRight: 16,
+  },
+  avatarGradient: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  verifiedBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  userInfo: {
+    flex: 1,
   },
   welcomeText: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+    color: '#666',
     marginBottom: 4,
+    fontFamily: 'System',
+    fontWeight: '500',
   },
   nameText: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 8,
+    color: '#333',
+    marginBottom: 6,
+    fontFamily: 'System',
   },
-  roleContainer: {
+  roleBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: '#4CAF50',
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 12,
+    alignSelf: 'flex-start',
   },
   roleText: {
     marginLeft: 4,
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#4CAF50',
+    color: '#fff',
+    fontFamily: 'System',
+  },
+  statsCardContainer: {
+    paddingHorizontal: 20,
+    marginTop: 20,
+    zIndex: 4,
   },
   statsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingHorizontal: 20,
-    marginBottom: 30,
-  },
-  statCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 20,
-    alignItems: 'center',
-    flex: 1,
-    marginHorizontal: 5,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  ordersIcon: {
+    backgroundColor: 'rgba(255, 152, 0, 0.1)',
+  },
+  certIcon: {
+    backgroundColor: 'rgba(33, 150, 243, 0.1)',
   },
   statNumber: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
-    marginTop: 8,
+    fontFamily: 'System',
   },
   statLabel: {
     fontSize: 12,
     color: '#666',
     marginTop: 4,
+    fontFamily: 'System',
+    fontWeight: '500',
   },
-  actionsContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 30,
+  statDivider: {
+    width: 1,
+    backgroundColor: '#e0e0e0',
+    marginHorizontal: 10,
   },
-  actionCard: {
-    borderRadius: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  actionGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  content: {
     padding: 20,
-    borderRadius: 16,
+    paddingTop: 20,
   },
-  actionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginLeft: 16,
-    flex: 1,
-  },
-  actionSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginLeft: 16,
-    flex: 1,
-  },
-  recentSection: {
-    backgroundColor: '#fff',
-    marginHorizontal: 20,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 30,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
-  },
-  productItem: {
+  sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#333',
+    fontFamily: 'System',
+  },
+  sectionDecoration: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  decorationDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#4CAF50',
+    marginHorizontal: 2,
+  },
+  actionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 30,
+  },
+  actionItem: {
+    width: (width - 60) / 2,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  actionIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  actionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+    fontFamily: 'System',
+  },
+  actionSubtitle: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 4,
+    fontFamily: 'System',
+  },
+  recentSection: {
+    marginBottom: 30,
+  },
+  seeAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  seeAllText: {
+    fontSize: 14,
+    color: '#4CAF50',
+    fontWeight: '600',
+    fontFamily: 'System',
+    marginRight: 4,
+  },
+  productsList: {
+    gap: 16,
+  },
+  productCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  productHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  productIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   productInfo: {
     flex: 1,
   },
   productName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: '#333',
+    fontFamily: 'System',
   },
   productCategory: {
     fontSize: 14,
     color: '#666',
     marginTop: 2,
+    fontFamily: 'System',
   },
-  productOrigin: {
-    fontSize: 12,
-    color: '#4CAF50',
-    marginTop: 4,
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 4,
   },
-  productStatus: {
-    backgroundColor: '#E8F5E8',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+  activeStatus: {
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
   },
   statusText: {
     fontSize: 12,
-    color: '#4CAF50',
     fontWeight: '600',
+    color: '#4CAF50',
+    fontFamily: 'System',
+  },
+  productDetails: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 16,
+  },
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  detailText: {
+    fontSize: 12,
+    color: '#666',
+    fontFamily: 'System',
+  },
+  productFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  footerItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  footerLabel: {
+    fontSize: 11,
+    color: '#999',
+    fontFamily: 'System',
+    marginBottom: 2,
+  },
+  footerValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+    fontFamily: 'System',
+  },
+  footerDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: '#f0f0f0',
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyText: {
-    fontSize: 18,
-    color: '#666',
-    marginTop: 16,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#999',
-    marginTop: 4,
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 50,
     backgroundColor: '#fff',
-    marginHorizontal: 20,
-    paddingVertical: 16,
-    borderRadius: 12,
-    marginBottom: 30,
+    borderRadius: 20,
+    paddingHorizontal: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  logoutText: {
-    marginLeft: 8,
+  emptyIconContainer: {
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#666',
+    marginBottom: 8,
+    fontFamily: 'System',
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+    marginBottom: 24,
+    fontFamily: 'System',
+    lineHeight: 20,
+  },
+  addFirstProductButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  addFirstProductText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'System',
+  },
+  bottomSpacing: {
+    height: 30,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: height * 0.7,
+    paddingBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    flex: 1,
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalProductList: {
+    maxHeight: height * 0.5,
+  },
+  modalProductItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalProductIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#f0f9f4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  modalProductInfo: {
+    flex: 1,
+  },
+  modalProductName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FF5722',
+    color: '#333',
+    marginBottom: 4,
+  },
+  modalProductBatch: {
+    fontSize: 14,
+    color: '#666',
+  },
+  modalCancelButton: {
+    margin: 20,
+    marginTop: 10,
+    padding: 16,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
   },
 });

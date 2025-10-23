@@ -37,6 +37,58 @@ const SupplyChain = {
     );
   },
 
+  getStagesByBatchCode: (batch_code, callback) => {
+    // First check if product exists
+    db.query(
+      `SELECT id, name, batch_code FROM products WHERE batch_code = ?`,
+      [batch_code],
+      (err, productResults) => {
+        if (err) {
+          return callback(err, null);
+        }
+        
+        // Product not found
+        if (productResults.length === 0) {
+          return callback(null, { productNotFound: true, stages: [] });
+        }
+        
+        // Product exists, now get stages
+        const product = productResults[0];
+        db.query(
+          `SELECT sc.*, u.full_name as updated_by_name, p.name as product_name, p.batch_code
+           FROM supply_chain sc 
+           JOIN products p ON sc.product_id = p.id
+           JOIN users u ON sc.updated_by = u.id 
+           WHERE p.batch_code = ? 
+           ORDER BY sc.timestamp ASC`,
+          [batch_code],
+          (err, stageResults) => {
+            if (err) {
+              return callback(err, null);
+            }
+            
+            // Product exists but no stages
+            if (stageResults.length === 0) {
+              return callback(null, { 
+                productNotFound: false, 
+                noStages: true,
+                product: product,
+                stages: [] 
+              });
+            }
+            
+            // Product exists with stages
+            callback(null, { 
+              productNotFound: false, 
+              noStages: false,
+              stages: stageResults 
+            });
+          }
+        );
+      }
+    );
+  },
+
     // Get all stages (for all products)
   getAllStages: (callback) => {
     db.query(

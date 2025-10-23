@@ -11,6 +11,7 @@ import {
   SafeAreaView,
   Dimensions,
   Animated,
+  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialIcons, FontAwesome5, Feather } from '@expo/vector-icons';
@@ -24,6 +25,28 @@ export default function HomeScreen({ navigation }) {
   const [notifications, setNotifications] = useState(3);
   const scrollY = new Animated.Value(0);
   const [activeTab, setActiveTab] = useState('all');
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  const sliderImages = [
+    {
+      id: 1,
+      image: 'https://i.postimg.cc/HxGSfbP6/image.png',
+      title: 'Fresh Organic Produce',
+      subtitle: 'Direct from local farms'
+    },
+    {
+      id: 2,
+      image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8Z3JvY2VyeSUyMHN0b3JlfGVufDB8fDB8fHww&w=1000&q=80',
+      title: 'Trace Your Food',
+      subtitle: 'Know your food\'s journey'
+    },
+    {
+      id: 3,
+      image: 'https://i.postimg.cc/14x5FCWX/image.png',
+      title: 'Support Local Farmers',
+      subtitle: 'Build sustainable communities'
+    }
+  ];
 
   const [recentProducts] = useState([
     { 
@@ -72,28 +95,13 @@ export default function HomeScreen({ navigation }) {
       gradient: ['#f093fb', '#f5576c'],
       screen: 'Scanner'
     },
-    {
-      title: 'Profile',
-      icon: 'account-circle-outline',
-      iconFamily: 'MaterialIcons',
-      description: 'Your account',
-      gradient: ['#4facfe', '#00f2fe'],
-      screen: 'Profile'
-    },
-    {
-      title: 'Contact',
-      icon: 'headset',
-      iconFamily: 'MaterialIcons',
-      description: 'Get support',
-      gradient: ['#43e97b', '#38f9d7'],
-      screen: 'Contact'
-    },
+   
     {
       title: 'Analytics',
       icon: 'stats-chart',
       iconFamily: 'Ionicons',
       description: 'Insights',
-      gradient: ['#fa709a', '#fee140'],
+      gradient: ['#fa709a', '#dcc22fff'],
       screen: 'Analytics'
     },
     {
@@ -101,15 +109,15 @@ export default function HomeScreen({ navigation }) {
       icon: 'certificate',
       iconFamily: 'FontAwesome5',
       description: 'Credentials',
-      gradient: ['#30cfd0', '#330867'],
+      gradient:  ['#4facfe', '#41c0c7ff'],
       screen: 'Certifications'
     },
     {
       title: 'Find Farmer',
-      icon: 'map-marker-radius',
+      icon: 'place',
       iconFamily: 'MaterialIcons',
       description: 'Nearby farms',
-      gradient: ['#a8edea', '#fed6e3'],
+      gradient: ['#21ada6ff', '#37fb8fff'],
       screen: 'FindFarmerScreen', 
     },
     {
@@ -117,7 +125,7 @@ export default function HomeScreen({ navigation }) {
       icon: 'map-outline',
       iconFamily: 'Ionicons',
       description: 'Track stages',
-      gradient: ['#ff9a9e', '#fecfef'],
+      gradient: ['#0a064aff', '#9791cdff'],
       screen: 'SupplyChainMap',
     },
   ];
@@ -134,6 +142,13 @@ export default function HomeScreen({ navigation }) {
       if (userData) setUser(JSON.parse(userData));
     };
     loadUser();
+
+    // Auto slide every 5 seconds
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % sliderImages.length);
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleLogout = async () => {
@@ -190,18 +205,16 @@ export default function HomeScreen({ navigation }) {
       <SafeAreaView style={styles.headerContainer}>
         <Animated.View style={[styles.header, { transform: [{ scale: headerScale }] }]}>
           <View style={styles.headerLeft}>
-            <LinearGradient colors={['#667eea', '#764ba2']} style={styles.logoContainer}>
-              <Ionicons name="leaf" size={24} color="#FFF" />
-            </LinearGradient>
+            <View style={styles.logoContainer}>
+              <Ionicons name="leaf" size={28} color="#10B981" />
+            </View>
             <View>
-              <Text style={styles.appTitle}>FoodTrace</Text>
+              <Text style={styles.appTitle}>Farm2Fork</Text>
               <Text style={styles.appSubtitle}>Smart Tracking</Text>
             </View>
           </View>
           <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.iconButton} activeOpacity={0.7}>
-              <Ionicons name="search-outline" size={22} color="#1F2937" />
-            </TouchableOpacity>
+           
             <TouchableOpacity style={styles.iconButton} activeOpacity={0.7}>
               <Ionicons name="notifications-outline" size={22} color="#1F2937" />
               {notifications > 0 && <View style={styles.notificationDot} />}
@@ -222,57 +235,55 @@ export default function HomeScreen({ navigation }) {
         )}
         scrollEventThrottle={16}
       >
-        {/* Hero Card */}
-        {user && (
-          <View style={styles.heroContainer}>
-            <LinearGradient
-              colors={['#667eea', '#764ba2']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.heroCard}
+        {/* Image Slider */}
+        <View style={styles.sliderContainer}>
+          <View style={styles.sliderWrapper}>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onScroll={(event) => {
+                const slide = Math.round(event.nativeEvent.contentOffset.x / width);
+                setCurrentSlide(slide);
+              }}
+              scrollEventThrottle={16}
             >
-              <View style={styles.heroContent}>
-                <View style={styles.heroLeft}>
-                  <View style={styles.welcomeBadge}>
-                    <Ionicons name="hand-right" size={14} color="#667eea" />
-                    <Text style={styles.welcomeText}>Welcome Back</Text>
-                  </View>
-                  <Text style={styles.userName}>{user.full_name}</Text>
-                  <View style={styles.userMeta}>
-                    <View style={styles.roleBadge}>
-                      <Ionicons name="shield-checkmark" size={12} color="#FFF" />
-                      <Text style={styles.roleText}>{user.role}</Text>
+              {sliderImages.map((slide) => (
+                <View key={slide.id} style={styles.slide}>
+                  <Image 
+                    source={{ uri: slide.image }} 
+                    style={styles.slideImage}
+                    resizeMode="cover"
+                  />
+                  <LinearGradient
+                    colors={['transparent', 'rgba(0,0,0,0.7)']}
+                    style={styles.slideGradient}
+                  >
+                    <View style={styles.slideContent}>
+                      <Text style={styles.slideTitle}>{slide.title}</Text>
+                      <Text style={styles.slideSubtitle}>{slide.subtitle}</Text>
                     </View>
-                  </View>
+                  </LinearGradient>
                 </View>
-                <View style={styles.heroRight}>
-                  <View style={styles.avatarCircle}>
-                    <Text style={styles.avatarLetter}>
-                      {user.full_name.charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Quick Stats in Hero */}
-              <View style={styles.statsRow}>
-                {quickStats.map((stat, index) => (
-                  <View key={index} style={styles.statItem}>
-                    <View style={styles.statIconContainer}>
-                      <Ionicons name={stat.icon} size={16} color={stat.color} />
-                    </View>
-                    <Text style={styles.statValue}>{stat.value}</Text>
-                    <Text style={styles.statLabel}>{stat.label}</Text>
-                    <View style={styles.changeContainer}>
-                      <Ionicons name="trending-up" size={10} color="#10B981" />
-                      <Text style={styles.changeText}>{stat.change}</Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </LinearGradient>
+              ))}
+            </ScrollView>
+            
+            {/* Slider Indicators */}
+            <View style={styles.sliderIndicators}>
+              {sliderImages.map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.indicator,
+                    currentSlide === index && styles.indicatorActive
+                  ]}
+                />
+              ))}
+            </View>
           </View>
-        )}
+        </View>
+
+       
 
         {/* Main Content */}
         <View style={styles.mainContent}>
@@ -519,6 +530,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 16,
+    backgroundColor: '#FFF',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -584,18 +596,24 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  heroContainer: {
-    paddingTop: Platform.OS === 'ios' ? 100 : 120,
-    paddingHorizontal: 20,
+  // Slider Styles
+  sliderContainer: {
+    marginTop: Platform.OS === 'ios' ? 100 : 120,
     marginBottom: 20,
   },
-  heroCard: {
+  sliderWrapper: {
+    position: 'relative',
+  },
+  slide: {
+    width: width - 40,
+    height: 200,
+    marginHorizontal: 20,
     borderRadius: 24,
-    padding: 24,
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
-        shadowColor: '#667eea',
-        shadowOffset: { width: 0, height: 12 },
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.3,
         shadowRadius: 16,
       },
@@ -604,119 +622,117 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  heroContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 24,
+  slideImage: {
+    width: '100%',
+    height: '100%',
   },
-  heroLeft: {
-    flex: 1,
+  slideGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '60%',
+    justifyContent: 'flex-end',
+    padding: 20,
   },
-  welcomeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-    marginBottom: 12,
-    gap: 6,
+  slideContent: {
+    marginBottom: 10,
   },
-  welcomeText: {
-    fontSize: 12,
-    color: '#667eea',
-    fontWeight: '700',
-  },
-  userName: {
-    fontSize: 28,
+  slideTitle: {
+    fontSize: 22,
     fontWeight: '900',
     color: '#FFF',
-    marginBottom: 8,
-    letterSpacing: -1,
+    marginBottom: 4,
+    letterSpacing: -0.5,
   },
-  userMeta: {
+  slideSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.9)',
+    fontWeight: '600',
+  },
+  sliderIndicators: {
     flexDirection: 'row',
-    alignItems: 'center',
-  },
-  roleBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    gap: 6,
-  },
-  roleText: {
-    fontSize: 13,
-    color: '#FFF',
-    fontWeight: '700',
-  },
-  heroRight: {
-    marginLeft: 16,
-  },
-  avatarCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
+    gap: 6,
   },
-  avatarLetter: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#FFF',
+  indicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+  },
+  indicatorActive: {
+    backgroundColor: '#FFF',
+    width: 24,
+  },
+  // Stats Container
+  statsContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
   },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   statItem: {
     flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
   },
   statIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FFF',
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginRight: 12,
+  },
+  statTextContainer: {
+    flex: 1,
   },
   statValue: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '900',
-    color: '#FFF',
+    color: '#111827',
     marginBottom: 2,
   },
   statLabel: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.8)',
+    fontSize: 12,
+    color: '#6B7280',
     fontWeight: '600',
     marginBottom: 4,
   },
   changeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16,185,129,0.2)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 8,
-    gap: 2,
+    gap: 4,
+    alignSelf: 'flex-start',
   },
   changeText: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#10B981',
     fontWeight: '700',
   },

@@ -1,12 +1,76 @@
 const Product = require('../models/productModel');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = 'uploads/products';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'product-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed!'), false);
+    }
+  }
+});
+
+// Middleware for handling multiple file uploads (product image + QR code)
+const uploadMultiple = upload.fields([
+  { name: 'product_image', maxCount: 1 },
+  { name: 'qr_code_image', maxCount: 1 }
+]);
 
 exports.createProduct = (req, res) => {
-  const { name, batch_code, description, category, origin, harvest_date, expiry_date } = req.body;
-  if (!name || !batch_code) return res.status(400).json({ message: 'Name and batch code required' });
+  console.log('=== PRODUCT CREATE REQUEST ===');
+  console.log('Headers:', req.headers);
+  console.log('Content-Type:', req.headers['content-type']);
+  
+  uploadMultiple(req, res, (err) => {
+    if (err) {
+      console.log('File upload error:', err);
+      return res.status(400).json({ message: 'File upload error', error: err.message });
+    }
 
-  Product.create(name, batch_code, description, req.user.id, category, origin, harvest_date, expiry_date, (err) => {
-    if (err) return res.status(500).json({ message: 'Error creating product', error: err });
-    res.json({ message: 'Product created successfully' });
+    const { name, batch_code, description, category, origin, harvest_date, expiry_date, qr_code_data } = req.body;
+    if (!name || !batch_code) return res.status(400).json({ message: 'Name and batch code required' });
+
+    // Get the uploaded file paths
+    const product_image = req.files && req.files.product_image ? req.files.product_image[0].path : null;
+    const qr_code_image = req.files && req.files.qr_code_image ? req.files.qr_code_image[0].path : null;
+    
+    console.log('Request body:', req.body);
+    console.log('Uploaded files:', req.files);
+    console.log('Product image path:', product_image);
+    console.log('QR code image path:', qr_code_image);
+    console.log('QR code data:', qr_code_data);
+    console.log('User ID:', req.user ? req.user.id : 'No user');
+
+    Product.create(name, batch_code, description, req.user.id, category, origin, harvest_date, expiry_date, product_image, qr_code_image, qr_code_data, (err) => {
+      if (err) {
+        console.log('Database error:', err);
+        return res.status(500).json({ message: 'Error creating product', error: err });
+      }
+      console.log('Product created successfully with images:', { product_image, qr_code_image });
+      res.json({ message: 'Product created successfully' });
+    });
   });
 };
 

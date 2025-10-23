@@ -6,14 +6,19 @@ const {
   getProducerStages, 
   getBlockchainStats, 
   verifyBlockchain,
-  getAllStages 
+  getAllStages,
+  getStagesByBatchCode
 } = require('../controllers/supplyChainController');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 
 
 router.get('/stages/all',  getAllStages);
-// Public: view product stages
+
+// Public: view product stages by batch code (for QR scanning)
+router.get('/batch/:batch_code', getStagesByBatchCode);
+
+// Public: view product stages by product ID
 router.get('/:product_id', getProductStages);
 
 // Public: get blockchain statistics for a product
