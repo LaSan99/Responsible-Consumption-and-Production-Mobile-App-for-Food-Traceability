@@ -13,6 +13,7 @@ import {
   StatusBar,
   Image,
   FlatList,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -54,9 +55,10 @@ export default function ProducerProfile({ navigation }) {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [products, setProducts] = useState([]);
-  const [allProducts, setAllProducts] = useState([]); // New state for all products
   const [refreshing, setRefreshing] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [productModalVisible, setProductModalVisible] = useState(false);
+  const [modalType, setModalType] = useState(''); // 'stages' or 'certifications'
   const scrollY = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef(null);
   const imageSliderRef = useRef(null);
@@ -64,7 +66,6 @@ export default function ProducerProfile({ navigation }) {
   useEffect(() => {
     loadUserData();
     loadProducerProducts();
-    loadAllProducts(); // Load all products on component mount
     startImageSlider();
   }, []);
 
@@ -89,7 +90,7 @@ export default function ProducerProfile({ navigation }) {
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadUserData(), loadProducerProducts(), loadAllProducts()]);
+    await Promise.all([loadUserData(), loadProducerProducts()]);
     setRefreshing(false);
   }, []);
 
@@ -115,19 +116,6 @@ export default function ProducerProfile({ navigation }) {
       console.error('Error loading producer products:', error);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  // New function to load all products
-  const loadAllProducts = async () => {
-    try {
-      const token = await AsyncStorage.getItem('token');
-      const response = await axios.get(`${apiConfig.baseURL}/products`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setAllProducts(response.data);
-    } catch (error) {
-      console.error('Error loading all products:', error);
     }
   };
 
@@ -172,20 +160,8 @@ export default function ProducerProfile({ navigation }) {
         productName: products[0].name
       });
     } else {
-      Alert.alert(
-        'Select Product',
-        'Choose a product to manage its blockchain stages:',
-        [
-          ...products.slice(0, 3).map(product => ({
-            text: product.name,
-            onPress: () => navigation.navigate('BlockchainStages', {
-              productId: product.id,
-              productName: product.name
-            })
-          })),
-          { text: 'Cancel', style: 'cancel' }
-        ]
-      );
+      setModalType('stages');
+      setProductModalVisible(true);
     }
   };
 
@@ -409,8 +385,8 @@ export default function ProducerProfile({ navigation }) {
               <View style={[styles.statIconContainer, styles.ordersIcon]}>
                 <Ionicons name="trending-up-outline" size={20} color="#FF9800" />
               </View>
-              <Text style={styles.statNumber}>{allProducts.length}</Text>
-              <Text style={styles.statLabel}>All Products</Text>
+              <Text style={styles.statNumber}>{products.length}</Text>
+              <Text style={styles.statLabel}>My Products</Text>
             </View>
             
             <View style={styles.statDivider} />
@@ -481,20 +457,8 @@ export default function ProducerProfile({ navigation }) {
                       productName: products[0].name
                     });
                   } else {
-                    Alert.alert(
-                      'Select Product',
-                      'Choose a product to manage its certifications:',
-                      [
-                        ...products.slice(0, 3).map(product => ({
-                          text: product.name,
-                          onPress: () => navigation.navigate('ProductCertificationManagement', {
-                            productId: product.id,
-                            productName: product.name
-                          })
-                        })),
-                        { text: 'Cancel', style: 'cancel' }
-                      ]
-                    );
+                    setModalType('certifications');
+                    setProductModalVisible(true);
                   }
                 }
               }
@@ -521,11 +485,11 @@ export default function ProducerProfile({ navigation }) {
           {/* Recent Products Section - Now showing ALL products */}
           <View style={styles.recentSection}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>All Products</Text>
-              {allProducts.length > 0 && (
+              <Text style={styles.sectionTitle}>My Products</Text>
+              {products.length > 0 && (
                 <TouchableOpacity 
                   style={styles.seeAllButton}
-                  onPress={() => navigation.navigate('AllProducts')}
+                  onPress={() => navigation.navigate('Products')}
                 >
                   <Text style={styles.seeAllText}>View All</Text>
                   <Ionicons name="chevron-forward" size={16} color="#4CAF50" />
@@ -533,9 +497,9 @@ export default function ProducerProfile({ navigation }) {
               )}
             </View>
 
-            {allProducts.length > 0 ? (
+            {products.length > 0 ? (
               <View style={styles.productsList}>
-                {allProducts.slice(0, 5).map((product, index) => (
+                {products.slice(0, 5).map((product, index) => (
                   <TouchableOpacity 
                     key={product.id} 
                     style={styles.productCard}
@@ -616,6 +580,71 @@ export default function ProducerProfile({ navigation }) {
           <View style={styles.bottomSpacing} />
         </View>
       </ScrollView>
+
+      {/* Product Selection Modal */}
+      <Modal
+        visible={productModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setProductModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {modalType === 'stages' ? 'Select Product for Blockchain' : 'Select Product for Certifications'}
+              </Text>
+              <TouchableOpacity 
+                onPress={() => setProductModalVisible(false)}
+                style={styles.modalCloseButton}
+              >
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.modalProductList}>
+              {products.map((product) => (
+                <TouchableOpacity
+                  key={product.id}
+                  style={styles.modalProductItem}
+                  onPress={() => {
+                    setProductModalVisible(false);
+                    if (modalType === 'stages') {
+                      navigation.navigate('BlockchainStages', {
+                        productId: product.id,
+                        productName: product.name
+                      });
+                    } else {
+                      navigation.navigate('ProductCertificationManagement', {
+                        productId: product.id,
+                        productName: product.name
+                      });
+                    }
+                  }}
+                >
+                  <View style={styles.modalProductIcon}>
+                    <Ionicons name="cube" size={24} color="#4CAF50" />
+                  </View>
+                  <View style={styles.modalProductInfo}>
+                    <Text style={styles.modalProductName}>{product.name}</Text>
+                    <Text style={styles.modalProductBatch}>
+                      Batch: {product.batch_code || 'N/A'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#999" />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            
+            <TouchableOpacity
+              style={styles.modalCancelButton}
+              onPress={() => setProductModalVisible(false)}
+            >
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1112,5 +1141,80 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 30,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: height * 0.7,
+    paddingBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    flex: 1,
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalProductList: {
+    maxHeight: height * 0.5,
+  },
+  modalProductItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalProductIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#f0f9f4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  modalProductInfo: {
+    flex: 1,
+  },
+  modalProductName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  modalProductBatch: {
+    fontSize: 14,
+    color: '#666',
+  },
+  modalCancelButton: {
+    margin: 20,
+    marginTop: 10,
+    padding: 16,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
   },
 });

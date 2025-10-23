@@ -114,7 +114,7 @@ export default function HomeScreen({ navigation }) {
     },
     {
       title: 'Find Farmer',
-      icon: 'map-marker-radius',
+      icon: 'place',
       iconFamily: 'MaterialIcons',
       description: 'Nearby farms',
       gradient: ['#21ada6ff', '#37fb8fff'],
