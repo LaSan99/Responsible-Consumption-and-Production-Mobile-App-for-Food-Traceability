@@ -383,66 +383,7 @@ const geocodeLocation = (locationText) => {
   }}
 // Mock data for testing when API fails
 const MOCK_PRODUCTS = [
-  {
-    "id": 1,
-    "name": "Organic Apples",
-    "batch_code": "BATCH001",
-    "description": "Fresh organic apples from Green Valley Farm",
-    "category": "Produce",
-    "origin": "Green Valley Farm",
-    "harvest_date": "2025-09-25",
-    "expiry_date": "2025-10-10",
-    "location": "Malabe",
-    "created_by_name": "Daniru"
-  },
-  {
-    "id": 2,
-    "name": "Basmati Rice",
-    "batch_code": "BATCH002",
-    "description": "Premium quality basmati rice",
-    "category": "Grains",
-    "origin": "Rice Fields Co.",
-    "harvest_date": "2025-09-20",
-    "expiry_date": "2026-03-20",
-    "location": "Colombo",
-    "created_by_name": "Saman"
-  },
-  {
-    "id": 3,
-    "name": "Ceylon Tea",
-    "batch_code": "BATCH003",
-    "description": "Freshly harvested Ceylon tea leaves",
-    "category": "Beverages",
-    "origin": "Hill Country Plantation",
-    "harvest_date": "2025-09-28",
-    "expiry_date": "2026-09-28",
-    "location": "Kandy",
-    "created_by_name": "Kamal"
-  },
-  {
-    "id": 4,
-    "name": "Coconut Oil",
-    "batch_code": "BATCH004",
-    "description": "Pure virgin coconut oil",
-    "category": "Oils",
-    "origin": "Coastal Mills",
-    "harvest_date": "2025-09-15",
-    "expiry_date": "2026-09-15",
-    "location": "Galle",
-    "created_by_name": "Nimal"
-  },
-  {
-    "id": 5,
-    "name": "Spices Collection",
-    "batch_code": "BATCH005",
-    "description": "Assorted traditional spices",
-    "category": "Spices",
-    "origin": "Spice Garden",
-    "harvest_date": "2025-09-10",
-    "expiry_date": "2026-09-10",
-    "location": "Matara",
-    "created_by_name": "Priya"
-  }
+ 
 ];
 
 export default function NearestSuppliersByProduct() {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,10 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
+import QRCode from 'react-native-qrcode-svg';
+import ViewShot from 'react-native-view-shot';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as MediaLibrary from 'expo-media-library';
 import apiConfig from '../config/api';
 
 const { width, height } = Dimensions.get('window');
@@ -35,6 +39,60 @@ export default function AddProductScreen({ navigation }) {
   const [isLoading, setIsLoading] = useState(false);
   const [focusedField, setFocusedField] = useState('');
   const [productImage, setProductImage] = useState(null);
+  const [qrCodeData, setQrCodeData] = useState(null);
+  const qrCodeRef = useRef(null);
+
+  const generateBatchCode = () => {
+    const timestamp = Date.now();
+    const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    const productNamePrefix = productData.name.trim().substring(0, 3).toUpperCase() || 'PRD';
+    return `${productNamePrefix}-${timestamp}-${randomNum}`;
+  };
+
+  // Auto-generate batch code when component mounts
+  useEffect(() => {
+    const initialBatchCode = generateBatchCode();
+    setProductData(prev => ({
+      ...prev,
+      batch_code: initialBatchCode
+    }));
+  }, []);
+
+  // Regenerate batch code when product name changes
+  useEffect(() => {
+    if (productData.name.trim()) {
+      const newBatchCode = generateBatchCode();
+      setProductData(prev => ({
+        ...prev,
+        batch_code: newBatchCode
+      }));
+    }
+  }, [productData.name]);
+
+  // Generate QR code data when batch code changes (QR contains only batch number)
+  useEffect(() => {
+    if (productData.batch_code) {
+      // QR code contains only the batch number
+      console.log('Setting QR code data to:', productData.batch_code);
+      setQrCodeData(productData.batch_code);
+    }
+  }, [productData.batch_code]);
+
+  const captureQRCode = async () => {
+    try {
+      if (qrCodeRef.current) {
+        console.log('Capturing QR code...');
+        const uri = await qrCodeRef.current.capture();
+        console.log('QR code captured successfully:', uri);
+        return uri;
+      }
+      console.log('QR code ref not available');
+      return null;
+    } catch (error) {
+      console.error('Error capturing QR code:', error);
+      return null;
+    }
+  };
 
   const handleInputChange = (field, value) => {
     setProductData(prev => ({
@@ -164,6 +222,11 @@ export default function AddProductScreen({ navigation }) {
     try {
       const token = await AsyncStorage.getItem('token');
       
+      // Capture QR code image
+      console.log('Starting QR code capture...');
+      const qrCodeImageUri = await captureQRCode();
+      console.log('QR code capture result:', qrCodeImageUri);
+      
       // Create FormData for file upload
       const formData = new FormData();
       formData.append('name', productData.name.trim());
@@ -173,8 +236,10 @@ export default function AddProductScreen({ navigation }) {
       formData.append('origin', productData.origin.trim());
       formData.append('harvest_date', productData.harvest_date.trim());
       formData.append('expiry_date', productData.expiry_date.trim());
+      formData.append('qr_code_data', qrCodeData);
+      console.log('QR code data being sent:', qrCodeData);
       
-      // Add image if selected
+      // Add product image if selected
       if (productImage) {
         console.log('Adding image to form data:', productImage);
         formData.append('product_image', {
@@ -184,6 +249,16 @@ export default function AddProductScreen({ navigation }) {
         });
       } else {
         console.log('No image selected');
+      }
+
+      // Add QR code image if generated
+      if (qrCodeImageUri) {
+        console.log('Adding QR code image to form data:', qrCodeImageUri);
+        formData.append('qr_code_image', {
+          uri: qrCodeImageUri,
+          type: 'image/png',
+          name: `qr_code_${productData.batch_code}.png`,
+        });
       }
       
       const response = await axios.post(
@@ -204,9 +279,10 @@ export default function AddProductScreen({ navigation }) {
             {
               text: 'Add Another',
               onPress: () => {
+                const newBatchCode = generateBatchCode();
                 setProductData({
                   name: '',
-                  batch_code: '',
+                  batch_code: newBatchCode,
                   description: '',
                   category: '',
                   origin: '',
@@ -304,13 +380,20 @@ export default function AddProductScreen({ navigation }) {
               'name'
             )}
 
-            {/* Batch Code */}
-            {renderInput(
-              'Batch Code *',
-              productData.batch_code,
-              (text) => handleInputChange('batch_code', text),
-              'batch_code'
-            )}
+            {/* Batch Code - Auto Generated */}
+            <View style={styles.batchCodeDisplayContainer}>
+              <View style={styles.batchCodeLabelContainer}>
+                <Ionicons name="qr-code-outline" size={20} color="#4CAF50" />
+                <Text style={styles.batchCodeLabel}>Auto-Generated Batch Code</Text>
+              </View>
+              <View style={styles.batchCodeDisplay}>
+                <Text style={styles.batchCodeText}>{productData.batch_code}</Text>
+                <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+              </View>
+              <Text style={styles.batchCodeNote}>
+                This code will be used for QR code generation and product tracking
+              </Text>
+            </View>
 
             {/* Category */}
             {renderInput(
@@ -353,6 +436,34 @@ export default function AddProductScreen({ navigation }) {
               'default',
               true,
               4
+            )}
+
+            {/* QR Code Preview Section */}
+            {qrCodeData && (
+              <View style={styles.qrCodeSection}>
+                <Text style={styles.qrCodeSectionTitle}>QR Code Preview</Text>
+                <Text style={styles.qrCodeSectionSubtitle}>
+                  This QR code contains only the batch number: {productData.batch_code}
+                </Text>
+                {console.log('Rendering QR code section with data:', qrCodeData)}
+                <View style={styles.qrCodeContainer}>
+                  <ViewShot ref={qrCodeRef} options={{ format: "png", quality: 0.9 }}>
+                    <View style={styles.qrCodeWrapper}>
+                      <QRCode
+                        value={qrCodeData}
+                        size={200}
+                        color="#000000"
+                        backgroundColor="#FFFFFF"
+                        logoSize={30}
+                        logoMargin={2}
+                        logoBorderRadius={15}
+                        quietZone={10}
+                      />
+                      <Text style={styles.qrCodeLabel}>Batch: {productData.batch_code}</Text>
+                    </View>
+                  </ViewShot>
+                </View>
+              </View>
             )}
 
             {/* Product Photo Section */}
@@ -606,5 +717,89 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 12,
     padding: 4,
+  },
+  batchCodeDisplayContainer: {
+    backgroundColor: '#f0f8f0',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+  },
+  batchCodeLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  batchCodeLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4CAF50',
+    marginLeft: 8,
+  },
+  batchCodeDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  batchCodeText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2e7d32',
+    flex: 1,
+  },
+  batchCodeNote: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  qrCodeSection: {
+    marginBottom: 20,
+  },
+  qrCodeSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 5,
+  },
+  qrCodeSectionSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 15,
+  },
+  qrCodeContainer: {
+    alignItems: 'center',
+    backgroundColor: '#f8f8f8',
+    borderRadius: 12,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  qrCodeWrapper: {
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  qrCodeLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 8,
+    fontWeight: '500',
   },
 });
