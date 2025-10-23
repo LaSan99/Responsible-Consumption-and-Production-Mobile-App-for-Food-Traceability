@@ -403,7 +403,7 @@ export default function ProductDetailScreen({ route, navigation }) {
             </TouchableOpacity>
 
             {/* Certificate Management Button */}
-            <TouchableOpacity 
+            {/* <TouchableOpacity 
               style={styles.secondaryButton}
               onPress={() => navigation.navigate('ProductCertificationManagement', { 
                 productId, 
@@ -417,10 +417,10 @@ export default function ProductDetailScreen({ route, navigation }) {
                 <Ionicons name="settings-outline" size={20} color="#fff" />
                 <Text style={styles.secondaryButtonText}>Manage Certifications</Text>
               </LinearGradient>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
 
             {/* Blockchain Button */}
-            <TouchableOpacity 
+            {/* <TouchableOpacity 
               style={styles.blockchainButton}
               onPress={() => navigation.navigate('BlockchainStages', { 
                 productId, 
@@ -435,7 +435,7 @@ export default function ProductDetailScreen({ route, navigation }) {
                 <Ionicons name="link-outline" size={20} color="#fff" />
                 <Text style={styles.blockchainButtonText}>View Blockchain</Text>
               </LinearGradient>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
 
           {/* Additional Info Card */}
