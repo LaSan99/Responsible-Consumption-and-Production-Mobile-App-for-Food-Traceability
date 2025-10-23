@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -35,6 +35,33 @@ export default function AddProductScreen({ navigation }) {
   const [isLoading, setIsLoading] = useState(false);
   const [focusedField, setFocusedField] = useState('');
   const [productImage, setProductImage] = useState(null);
+
+  const generateBatchCode = () => {
+    const timestamp = Date.now();
+    const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    const productNamePrefix = productData.name.trim().substring(0, 3).toUpperCase() || 'PRD';
+    return `${productNamePrefix}-${timestamp}-${randomNum}`;
+  };
+
+  // Auto-generate batch code when component mounts
+  useEffect(() => {
+    const initialBatchCode = generateBatchCode();
+    setProductData(prev => ({
+      ...prev,
+      batch_code: initialBatchCode
+    }));
+  }, []);
+
+  // Regenerate batch code when product name changes
+  useEffect(() => {
+    if (productData.name.trim()) {
+      const newBatchCode = generateBatchCode();
+      setProductData(prev => ({
+        ...prev,
+        batch_code: newBatchCode
+      }));
+    }
+  }, [productData.name]);
 
   const handleInputChange = (field, value) => {
     setProductData(prev => ({
@@ -204,9 +231,10 @@ export default function AddProductScreen({ navigation }) {
             {
               text: 'Add Another',
               onPress: () => {
+                const newBatchCode = generateBatchCode();
                 setProductData({
                   name: '',
-                  batch_code: '',
+                  batch_code: newBatchCode,
                   description: '',
                   category: '',
                   origin: '',
@@ -304,13 +332,20 @@ export default function AddProductScreen({ navigation }) {
               'name'
             )}
 
-            {/* Batch Code */}
-            {renderInput(
-              'Batch Code *',
-              productData.batch_code,
-              (text) => handleInputChange('batch_code', text),
-              'batch_code'
-            )}
+            {/* Batch Code - Auto Generated */}
+            <View style={styles.batchCodeDisplayContainer}>
+              <View style={styles.batchCodeLabelContainer}>
+                <Ionicons name="qr-code-outline" size={20} color="#4CAF50" />
+                <Text style={styles.batchCodeLabel}>Auto-Generated Batch Code</Text>
+              </View>
+              <View style={styles.batchCodeDisplay}>
+                <Text style={styles.batchCodeText}>{productData.batch_code}</Text>
+                <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+              </View>
+              <Text style={styles.batchCodeNote}>
+                This code will be used for QR code generation and product tracking
+              </Text>
+            </View>
 
             {/* Category */}
             {renderInput(
@@ -606,5 +641,47 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 12,
     padding: 4,
+  },
+  batchCodeDisplayContainer: {
+    backgroundColor: '#f0f8f0',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+  },
+  batchCodeLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  batchCodeLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4CAF50',
+    marginLeft: 8,
+  },
+  batchCodeDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  batchCodeText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2e7d32',
+    flex: 1,
+  },
+  batchCodeNote: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+    marginTop: 8,
+    textAlign: 'center',
   },
 });
