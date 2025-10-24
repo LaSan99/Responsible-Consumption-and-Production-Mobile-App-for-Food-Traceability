@@ -22,6 +22,7 @@ import QRCode from 'react-native-qrcode-svg';
 import ViewShot from 'react-native-view-shot';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import apiConfig from '../config/api';
 
 const { width, height } = Dimensions.get('window');
@@ -41,12 +42,70 @@ export default function AddProductScreen({ navigation }) {
   const [productImage, setProductImage] = useState(null);
   const [qrCodeData, setQrCodeData] = useState(null);
   const qrCodeRef = useRef(null);
+  
+  // Date picker states
+  const [showHarvestDatePicker, setShowHarvestDatePicker] = useState(false);
+  const [showExpiryDatePicker, setShowExpiryDatePicker] = useState(false);
+  const [harvestDate, setHarvestDate] = useState(new Date());
+  const [expiryDate, setExpiryDate] = useState(new Date());
 
   const generateBatchCode = () => {
     const timestamp = Date.now();
     const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
     const productNamePrefix = productData.name.trim().substring(0, 3).toUpperCase() || 'PRD';
     return `${productNamePrefix}-${timestamp}-${randomNum}`;
+  };
+
+  // Helper function to format date for display
+  const formatDate = (date) => {
+    return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+  };
+
+  // Helper function to format date for display with better formatting
+  const formatDateDisplay = (date) => {
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  // Date picker handlers
+  const handleHarvestDateChange = (event, selectedDate) => {
+    setShowHarvestDatePicker(false);
+    if (selectedDate) {
+      setHarvestDate(selectedDate);
+      setProductData(prev => ({
+        ...prev,
+        harvest_date: formatDate(selectedDate)
+      }));
+    }
+  };
+
+  const handleExpiryDateChange = (event, selectedDate) => {
+    setShowExpiryDatePicker(false);
+    if (selectedDate) {
+      // Validate that expiry date is not today or earlier
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const selectedDateOnly = new Date(selectedDate);
+      selectedDateOnly.setHours(0, 0, 0, 0);
+      
+      if (selectedDateOnly <= today) {
+        Alert.alert(
+          'Invalid Date',
+          'Expiry date must be after today. Please select a future date.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      
+      setExpiryDate(selectedDate);
+      setProductData(prev => ({
+        ...prev,
+        expiry_date: formatDate(selectedDate)
+      }));
+    }
   };
 
   // Auto-generate batch code when component mounts
@@ -212,6 +271,32 @@ export default function AddProductScreen({ navigation }) {
       Alert.alert('Error', 'Product description is required');
       return false;
     }
+    if (!productData.harvest_date.trim()) {
+      Alert.alert('Error', 'Harvest date is required');
+      return false;
+    }
+    if (!productData.expiry_date.trim()) {
+      Alert.alert('Error', 'Expiry date is required');
+      return false;
+    }
+    
+    // Validate expiry date is after harvest date
+    const harvestDateObj = new Date(productData.harvest_date);
+    const expiryDateObj = new Date(productData.expiry_date);
+    
+    if (expiryDateObj <= harvestDateObj) {
+      Alert.alert('Error', 'Expiry date must be after harvest date');
+      return false;
+    }
+    
+    // Validate expiry date is in the future
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (expiryDateObj <= today) {
+      Alert.alert('Error', 'Expiry date must be after today');
+      return false;
+    }
+    
     return true;
   };
 
@@ -412,20 +497,56 @@ export default function AddProductScreen({ navigation }) {
             )}
 
             {/* Harvest Date */}
-            {renderInput(
-              'Harvest Date (YYYY-MM-DD)',
-              productData.harvest_date,
-              (text) => handleInputChange('harvest_date', text),
-              'harvest_date'
-            )}
+            <View style={styles.dateInputContainer}>
+              <Text style={styles.dateLabel}>Harvest Date *</Text>
+              <TouchableOpacity
+                style={[
+                  styles.datePickerButton,
+                  focusedField === 'harvest_date' && styles.datePickerButtonFocused
+                ]}
+                onPress={() => {
+                  setFocusedField('harvest_date');
+                  setShowHarvestDatePicker(true);
+                }}
+              >
+                <View style={styles.datePickerContent}>
+                  <Ionicons name="calendar-outline" size={20} color="#4CAF50" />
+                  <Text style={[
+                    styles.datePickerText,
+                    !productData.harvest_date && styles.datePickerPlaceholder
+                  ]}>
+                    {productData.harvest_date ? formatDateDisplay(harvestDate) : 'Select harvest date'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color="#666" />
+                </View>
+              </TouchableOpacity>
+            </View>
 
             {/* Expiry Date */}
-            {renderInput(
-              'Expiry Date (YYYY-MM-DD)',
-              productData.expiry_date,
-              (text) => handleInputChange('expiry_date', text),
-              'expiry_date'
-            )}
+            <View style={styles.dateInputContainer}>
+              <Text style={styles.dateLabel}>Expiry Date *</Text>
+              <TouchableOpacity
+                style={[
+                  styles.datePickerButton,
+                  focusedField === 'expiry_date' && styles.datePickerButtonFocused
+                ]}
+                onPress={() => {
+                  setFocusedField('expiry_date');
+                  setShowExpiryDatePicker(true);
+                }}
+              >
+                <View style={styles.datePickerContent}>
+                  <Ionicons name="calendar-outline" size={20} color="#4CAF50" />
+                  <Text style={[
+                    styles.datePickerText,
+                    !productData.expiry_date && styles.datePickerPlaceholder
+                  ]}>
+                    {productData.expiry_date ? formatDateDisplay(expiryDate) : 'Select expiry date'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color="#666" />
+                </View>
+              </TouchableOpacity>
+            </View>
 
             {/* Description */}
             {renderInput(
@@ -527,6 +648,27 @@ export default function AddProductScreen({ navigation }) {
             </Text>
           </View>
         </ScrollView>
+
+        {/* Date Pickers */}
+        {showHarvestDatePicker && (
+          <DateTimePicker
+            value={harvestDate}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={handleHarvestDateChange}
+            maximumDate={new Date()} // Harvest date cannot be in the future
+          />
+        )}
+
+        {showExpiryDatePicker && (
+          <DateTimePicker
+            value={expiryDate}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={handleExpiryDateChange}
+            minimumDate={new Date(Date.now() + 24 * 60 * 60 * 1000)} // Minimum tomorrow
+          />
+        )}
       </KeyboardAvoidingView>
     </LinearGradient>
   );
@@ -801,5 +943,40 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 8,
     fontWeight: '500',
+  },
+  dateInputContainer: {
+    marginBottom: 20,
+  },
+  dateLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  datePickerButton: {
+    backgroundColor: '#f8f8f8',
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  datePickerButtonFocused: {
+    borderColor: '#4CAF50',
+    backgroundColor: '#f0f8f0',
+  },
+  datePickerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  datePickerText: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1,
+    marginLeft: 10,
+  },
+  datePickerPlaceholder: {
+    color: '#999',
   },
 });
