@@ -53,6 +53,7 @@ export default function AddProductScreen({ navigation }) {
   
   // Category picker states
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [categorySearchText, setCategorySearchText] = useState('');
   
   // Food categories for traceability
   const foodCategories = [
@@ -265,6 +266,16 @@ export default function AddProductScreen({ navigation }) {
 
   const getSelectedCategory = () => {
     return foodCategories.find(cat => cat.name === productData.category) || null;
+  };
+
+  const getFilteredCategories = () => {
+    if (!categorySearchText.trim()) {
+      return foodCategories;
+    }
+    return foodCategories.filter(category =>
+      category.name.toLowerCase().includes(categorySearchText.toLowerCase()) ||
+      category.description.toLowerCase().includes(categorySearchText.toLowerCase())
+    );
   };
 
   const requestPermissions = async () => {
@@ -940,14 +951,40 @@ export default function AddProductScreen({ navigation }) {
               <View style={styles.categoryModalHeader}>
                 <Text style={styles.categoryModalTitle}>Select Product Category</Text>
                 <TouchableOpacity
-                  onPress={() => setShowCategoryPicker(false)}
+                  onPress={() => {
+                    setShowCategoryPicker(false);
+                    setCategorySearchText('');
+                  }}
                   style={styles.categoryModalClose}
                 >
-                  <Ionicons name="close" size={24} color="#666" />
+                  <Ionicons name="close" size={20} color="#666" />
                 </TouchableOpacity>
               </View>
+              
+              {/* Search Bar */}
+              <View style={styles.categorySearchContainer}>
+                <View style={styles.categorySearchInputContainer}>
+                  <Ionicons name="search" size={20} color="#95a5a6" style={styles.categorySearchIcon} />
+                  <TextInput
+                    style={styles.categorySearchInput}
+                    placeholder="Search categories..."
+                    placeholderTextColor="#95a5a6"
+                    value={categorySearchText}
+                    onChangeText={setCategorySearchText}
+                  />
+                  {categorySearchText.length > 0 && (
+                    <TouchableOpacity
+                      onPress={() => setCategorySearchText('')}
+                      style={styles.categorySearchClear}
+                    >
+                      <Ionicons name="close-circle" size={20} color="#95a5a6" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+              
               <ScrollView style={styles.categoryList} showsVerticalScrollIndicator={false}>
-                {foodCategories.map((category) => (
+                {getFilteredCategories().map((category) => (
                   <TouchableOpacity
                     key={category.id}
                     style={[
@@ -1540,75 +1577,160 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
   },
   categoryModal: {
     backgroundColor: '#ffffff',
-    borderRadius: 20,
-    marginHorizontal: 20,
-    maxHeight: '80%',
-    width: '90%',
-    shadowColor: '#000',
+    borderRadius: 28,
+    marginHorizontal: 16,
+    maxHeight: '85%',
+    width: '92%',
+    shadowColor: '#4CAF50',
     shadowOffset: {
       width: 0,
-      height: 10,
+      height: 20,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowOpacity: 0.3,
+    shadowRadius: 30,
+    elevation: 20,
+    borderWidth: 1,
+    borderColor: '#f0f8f0',
   },
   categoryModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e8f5e8',
+    borderBottomColor: '#f0f8f0',
+    backgroundColor: '#fafafa',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
   },
   categoryModalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#2c3e50',
+    letterSpacing: 0.5,
   },
   categoryModalClose: {
-    padding: 4,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   categoryList: {
-    maxHeight: 400,
+    maxHeight: 450,
+    paddingVertical: 8,
   },
   categoryOption: {
+    marginHorizontal: 16,
+    marginVertical: 4,
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    paddingVertical: 18,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   categoryOptionSelected: {
-    backgroundColor: '#f8fff8',
-    borderLeftWidth: 4,
-    borderLeftColor: '#4CAF50',
+    backgroundColor: '#f0f8f0',
+    borderColor: '#4CAF50',
+    borderWidth: 2,
+    shadowColor: '#4CAF50',
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
+    transform: [{ scale: 1.02 }],
   },
   categoryOptionContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   categoryOptionIcon: {
-    fontSize: 24,
+    fontSize: 28,
     marginRight: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f8f8f8',
+    textAlign: 'center',
+    lineHeight: 40,
   },
   categoryOptionText: {
     flex: 1,
   },
   categoryOptionName: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     color: '#2c3e50',
+    letterSpacing: 0.3,
   },
   categoryOptionDescription: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#95a5a6',
-    marginTop: 2,
+    marginTop: 4,
+    fontWeight: '500',
+    lineHeight: 18,
+  },
+  categorySearchContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#fafafa',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f8f0',
+  },
+  categorySearchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#e8f5e8',
+    shadowColor: '#4CAF50',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  categorySearchIcon: {
+    marginRight: 12,
+  },
+  categorySearchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#2c3e50',
+    fontWeight: '500',
+  },
+  categorySearchClear: {
+    padding: 4,
+    marginLeft: 8,
   },
 });
