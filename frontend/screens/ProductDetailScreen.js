@@ -180,11 +180,11 @@ export default function ProductDetailScreen({ route, navigation }) {
   }
 
   return (
-    <LinearGradient
-      colors={['#9C27B0', '#E1BEE7', '#F3E5F5']}
-      style={styles.gradient}
-    >
-      <View style={styles.container}>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#2E7D32', '#4CAF50', '#8BC34A']}
+        style={styles.gradient}
+      >
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
@@ -450,16 +450,17 @@ export default function ProductDetailScreen({ route, navigation }) {
             </Text>
           </View>
         </ScrollView>
-      </View>
-    </LinearGradient>
+      </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
   container: {
+    flex: 1,
+    backgroundColor: '#E8F5E9',
+  },
+  gradient: {
     flex: 1,
   },
   loadingContainer: {
@@ -511,7 +512,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 50,
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 24,
   },
   backButton: {
     width: 40,
@@ -541,15 +542,22 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flex: 1,
+    backgroundColor: '#E8F5E9',
   },
   imageContainer: {
-    width: width,
-    height: 200,
-    backgroundColor: '#e5e7eb',
+    width: width - 40,
+    height: 240,
+    backgroundColor: '#FFFFFF',
     marginHorizontal: 20,
-    marginTop: 10,
-    borderRadius: 12,
+    marginTop: 16,
+    marginBottom: 16,
+    borderRadius: 24,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 16,
+    elevation: 8,
   },
   productImage: {
     width: '100%',
@@ -578,16 +586,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   productCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     marginHorizontal: 20,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 24,
+    padding: 24,
     marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 16,
+    elevation: 8,
   },
   productHeader: {
     flexDirection: 'row',
@@ -595,15 +603,15 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   productIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#f8f9fa',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#E8F5E9',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
     borderWidth: 2,
-    borderColor: '#9C27B0',
+    borderColor: '#4CAF50',
   },
   productIcon: {
     fontSize: 28,
@@ -668,48 +676,50 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   primaryButton: {
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#9C27B0',
-    shadowOffset: { width: 0, height: 4 },
+    borderRadius: 16,
+    marginBottom: 14,
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowRadius: 12,
+    elevation: 6,
   },
   primaryButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: 18,
+    borderRadius: 16,
   },
   primaryButtonText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
+    fontSize: 17,
+    fontWeight: '700',
+    marginLeft: 10,
+    letterSpacing: 0.3,
   },
   checkExpiryButton: {
-    borderRadius: 12,
-    marginBottom: 12,
+    borderRadius: 16,
+    marginBottom: 14,
     shadowColor: '#FF9800',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowRadius: 12,
+    elevation: 6,
   },
   checkExpiryButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: 18,
+    borderRadius: 16,
   },
   checkExpiryButtonText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
+    fontSize: 17,
+    fontWeight: '700',
+    marginLeft: 10,
+    letterSpacing: 0.3,
   },
   secondaryButton: {
     borderRadius: 12,
@@ -733,18 +743,16 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   infoCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     marginHorizontal: 20,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    borderLeftWidth: 4,
-    borderLeftColor: '#9C27B0',
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 30,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 16,
+    elevation: 8,
   },
   infoHeader: {
     flexDirection: 'row',
@@ -763,36 +771,34 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   qrCodeCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     marginHorizontal: 20,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 24,
+    padding: 24,
     marginBottom: 20,
-    borderLeftWidth: 4,
-    borderLeftColor: '#4CAF50',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 16,
+    elevation: 8,
   },
   qrCodeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   qrCodeTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginLeft: 8,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#2c3e50',
+    marginLeft: 12,
   },
   qrCodeContainer: {
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 20,
   },
   qrCodeImage: {
     width: 200,
@@ -812,48 +818,48 @@ const styles = StyleSheet.create({
   downloadButton: {
     flex: 1,
     marginRight: 8,
-    borderRadius: 8,
+    borderRadius: 14,
     shadowColor: '#4CAF50',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   downloadButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
   },
   downloadButtonText: {
     color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 6,
+    fontSize: 15,
+    fontWeight: '700',
+    marginLeft: 8,
   },
   shareButton: {
     flex: 1,
     marginLeft: 8,
-    borderRadius: 8,
+    borderRadius: 14,
     shadowColor: '#2196F3',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   shareButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
   },
   shareButtonText: {
     color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 6,
+    fontSize: 15,
+    fontWeight: '700',
+    marginLeft: 8,
   },
   blockchainButton: {
     borderRadius: 12,
