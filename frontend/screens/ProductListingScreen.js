@@ -12,6 +12,7 @@ import {
   Animated,
   RefreshControl,
   Image,
+  TextInput,
 } from "react-native";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -213,6 +214,8 @@ const ProductCard = ({ product, onPress, index, userRole, onEdit, onDelete }) =>
 
 export default function ProductListingScreen({ navigation }) {
   const [products, setProducts] = useState([]);
+  const [filteredProducts, setFilteredProducts] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [analytics, setAnalytics] = useState({
@@ -229,6 +232,9 @@ export default function ProductListingScreen({ navigation }) {
   const statsAnim = useRef(new Animated.Value(0)).current;
   const backgroundAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const headerOpacity = useRef(new Animated.Value(1)).current;
+  const headerTranslateY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loadUserRole();
@@ -274,6 +280,26 @@ export default function ProductListingScreen({ navigation }) {
     ).start();
   }, []);
 
+  // Filter products based on search query
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      setFilteredProducts(products);
+    } else {
+      const filtered = products.filter(product => {
+        const query = searchQuery.toLowerCase();
+        return (
+          product.name?.toLowerCase().includes(query) ||
+          product.category?.toLowerCase().includes(query) ||
+          product.origin?.toLowerCase().includes(query) ||
+          product.batch_code?.toLowerCase().includes(query) ||
+          product.description?.toLowerCase().includes(query) ||
+          product.created_by_name?.toLowerCase().includes(query)
+        );
+      });
+      setFilteredProducts(filtered);
+    }
+  }, [searchQuery, products]);
+
   const loadUserRole = async () => {
     try {
       const userData = await AsyncStorage.getItem('user');
@@ -305,6 +331,7 @@ export default function ProductListingScreen({ navigation }) {
       
       const productsData = response.data;
       setProducts(productsData);
+      setFilteredProducts(productsData);
       
       // Calculate analytics
       const totalProducts = productsData.length;
@@ -348,6 +375,10 @@ export default function ProductListingScreen({ navigation }) {
     setRefreshing(true);
     await fetchProducts();
     setRefreshing(false);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery("");
   };
 
   const goBack = () => {
@@ -413,28 +444,49 @@ export default function ProductListingScreen({ navigation }) {
       </Animated.View>
       
       {/* Fixed Header */}
-      <LinearGradient
-        colors={["#2E7D32", "#4CAF50", "#8BC34A"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
+      <Animated.View
+        style={[
+          styles.headerContainer,
+          {
+            opacity: scrollY.interpolate({
+              inputRange: [0, 100],
+              outputRange: [1, 0],
+              extrapolate: 'clamp',
+            }),
+            transform: [
+              {
+                translateY: scrollY.interpolate({
+                  inputRange: [0, 100],
+                  outputRange: [0, -100],
+                  extrapolate: 'clamp',
+                }),
+              },
+            ],
+          },
+        ]}
       >
-        <Animated.View
-          style={[
-            styles.headerContent,
-            {
-              opacity: headerAnim,
-              transform: [
-                {
-                  translateY: headerAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [-20, 0],
-                  }),
-                },
-              ],
-            },
-          ]}
+        <LinearGradient
+          colors={["#2E7D32", "#4CAF50", "#8BC34A"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.header}
         >
+          <Animated.View
+            style={[
+              styles.headerContent,
+              {
+                opacity: headerAnim,
+                transform: [
+                  {
+                    translateY: headerAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-20, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
           <TouchableOpacity onPress={goBack} style={styles.backButton}>
             <View style={styles.backButtonInner}>
               <Ionicons name="arrow-back" size={22} color="#10B981" />
@@ -444,17 +496,21 @@ export default function ProductListingScreen({ navigation }) {
             <Text style={styles.headerSubtitle}>Supply Chain</Text>
             <Text style={styles.headerTitle}>Product List</Text>
           </View>
-          <TouchableOpacity style={styles.filterButton}>
-            <Ionicons name="options-outline" size={22} color="#fff" />
-          </TouchableOpacity>
-        </Animated.View>
-      </LinearGradient>
+          <View style={styles.headerSpacer} />
+          </Animated.View>
+        </LinearGradient>
+      </Animated.View>
 
       {/* Scrollable Content */}
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollView}
         showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -530,22 +586,93 @@ export default function ProductListingScreen({ navigation }) {
           </View>
         </Animated.View>
 
+        {/* Enhanced Search Bar */}
+        <Animated.View 
+          style={[
+            styles.searchContainer,
+            {
+              opacity: statsAnim,
+              transform: [
+                {
+                  translateY: statsAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [20, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <LinearGradient
+            colors={["#FFFFFF", "#F8FFFE"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.searchBarGradient}
+          >
+            <View style={styles.searchBar}>
+              <View style={styles.searchIconContainer}>
+                <Ionicons name="search" size={22} color="#4CAF50" />
+              </View>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search products by name, category, origin..."
+                placeholderTextColor="#9CA3AF"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                returnKeyType="search"
+                autoCorrect={false}
+                autoCapitalize="none"
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+                  <View style={styles.clearButtonInner}>
+                    <Ionicons name="close" size={18} color="#6B7280" />
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
+          </LinearGradient>
+          
+          {/* Search Results Indicator */}
+          {searchQuery.length > 0 && (
+            <View style={styles.searchIndicator}>
+              <Ionicons name="funnel" size={14} color="#4CAF50" />
+              <Text style={styles.searchIndicatorText}>
+                Showing {filteredProducts.length} of {products.length} products
+              </Text>
+            </View>
+          )}
+        </Animated.View>
+
         {/* Products Title */}
         <View style={styles.productsHeader}>
-          <Text style={styles.productsTitle}>All Products</Text>
-          <Text style={styles.productsCount}>{products.length} items</Text>
+          <Text style={styles.productsTitle}>
+            {searchQuery ? `Search Results` : `All Products`}
+          </Text>
+          <Text style={styles.productsCount}>
+            {filteredProducts.length} {searchQuery ? 'found' : 'items'}
+          </Text>
         </View>
 
-        {products.length === 0 ? (
+        {filteredProducts.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="cube-outline" size={64} color="#D1D5DB" />
-            <Text style={styles.emptyStateTitle}>No Products Yet</Text>
+            <Ionicons 
+              name={searchQuery ? "search-outline" : "cube-outline"} 
+              size={64} 
+              color="#D1D5DB" 
+            />
+            <Text style={styles.emptyStateTitle}>
+              {searchQuery ? "No Products Found" : "No Products Yet"}
+            </Text>
             <Text style={styles.emptyStateText}>
-              Products will appear here once they're added
+              {searchQuery 
+                ? `No products match "${searchQuery}". Try a different search term.`
+                : "Products will appear here once they're added"
+              }
             </Text>
           </View>
         ) : (
-          products.map((product, index) => (
+          filteredProducts.map((product, index) => (
             <ProductCard
               key={product.id || index}
               product={product}
@@ -560,6 +687,33 @@ export default function ProductListingScreen({ navigation }) {
           ))
         )}
       </ScrollView>
+
+      {/* Floating Back Button - appears when header is hidden */}
+      <Animated.View
+        style={[
+          styles.floatingBackButton,
+          {
+            opacity: scrollY.interpolate({
+              inputRange: [0, 100],
+              outputRange: [0, 1],
+              extrapolate: 'clamp',
+            }),
+            transform: [
+              {
+                translateY: scrollY.interpolate({
+                  inputRange: [0, 100],
+                  outputRange: [50, 0],
+                  extrapolate: 'clamp',
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <TouchableOpacity onPress={goBack} style={styles.floatingBackButtonInner}>
+          <Ionicons name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -614,9 +768,17 @@ const styles = StyleSheet.create({
     top: '55%',
     left: -20,
   },
+  headerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    paddingTop: 40, // Added top padding to prevent header cutoff
+  },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 16,
     paddingBottom: 20,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
@@ -628,6 +790,7 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flex: 1,
+    paddingTop: 140, // Increased space for the header with top margin
   },
   headerContent: {
     flexDirection: "row",
@@ -667,13 +830,28 @@ const styles = StyleSheet.create({
     color: "#fff",
     letterSpacing: 0.3,
   },
-  filterButton: {
+  headerSpacer: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    alignItems: "center",
-    justifyContent: "center",
+  },
+  floatingBackButton: {
+    position: 'absolute',
+    top: 90, // Adjusted for increased header margin
+    left: 20,
+    zIndex: 1001,
+  },
+  floatingBackButtonInner: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#4CAF50',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    elevation: 8,
   },
   statsContainer: {
     flexDirection: "row",
@@ -1025,5 +1203,83 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#4CAF50',
+  },
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  searchBarGradient: {
+    borderRadius: 20,
+    shadowColor: '#4CAF50',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.2)',
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderRadius: 20,
+  },
+  searchIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+    shadowColor: '#4CAF50',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#374151',
+    fontWeight: '500',
+    lineHeight: 22,
+  },
+  clearButton: {
+    marginLeft: 12,
+  },
+  clearButtonInner: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  searchIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.2)',
+  },
+  searchIndicatorText: {
+    fontSize: 12,
+    color: '#4CAF50',
+    fontWeight: '600',
+    marginLeft: 6,
+    letterSpacing: 0.3,
   },
 });
