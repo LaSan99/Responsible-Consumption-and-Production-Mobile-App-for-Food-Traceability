@@ -232,6 +232,9 @@ export default function ProductListingScreen({ navigation }) {
   const statsAnim = useRef(new Animated.Value(0)).current;
   const backgroundAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const headerOpacity = useRef(new Animated.Value(1)).current;
+  const headerTranslateY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loadUserRole();
@@ -441,28 +444,49 @@ export default function ProductListingScreen({ navigation }) {
       </Animated.View>
       
       {/* Fixed Header */}
-      <LinearGradient
-        colors={["#2E7D32", "#4CAF50", "#8BC34A"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
+      <Animated.View
+        style={[
+          styles.headerContainer,
+          {
+            opacity: scrollY.interpolate({
+              inputRange: [0, 100],
+              outputRange: [1, 0],
+              extrapolate: 'clamp',
+            }),
+            transform: [
+              {
+                translateY: scrollY.interpolate({
+                  inputRange: [0, 100],
+                  outputRange: [0, -100],
+                  extrapolate: 'clamp',
+                }),
+              },
+            ],
+          },
+        ]}
       >
-        <Animated.View
-          style={[
-            styles.headerContent,
-            {
-              opacity: headerAnim,
-              transform: [
-                {
-                  translateY: headerAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [-20, 0],
-                  }),
-                },
-              ],
-            },
-          ]}
+        <LinearGradient
+          colors={["#2E7D32", "#4CAF50", "#8BC34A"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.header}
         >
+          <Animated.View
+            style={[
+              styles.headerContent,
+              {
+                opacity: headerAnim,
+                transform: [
+                  {
+                    translateY: headerAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-20, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
           <TouchableOpacity onPress={goBack} style={styles.backButton}>
             <View style={styles.backButtonInner}>
               <Ionicons name="arrow-back" size={22} color="#10B981" />
@@ -472,17 +496,21 @@ export default function ProductListingScreen({ navigation }) {
             <Text style={styles.headerSubtitle}>Supply Chain</Text>
             <Text style={styles.headerTitle}>Product List</Text>
           </View>
-          <TouchableOpacity style={styles.filterButton}>
-            <Ionicons name="options-outline" size={22} color="#fff" />
-          </TouchableOpacity>
-        </Animated.View>
-      </LinearGradient>
+          <View style={styles.headerSpacer} />
+          </Animated.View>
+        </LinearGradient>
+      </Animated.View>
 
       {/* Scrollable Content */}
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollView}
         showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -659,6 +687,33 @@ export default function ProductListingScreen({ navigation }) {
           ))
         )}
       </ScrollView>
+
+      {/* Floating Back Button - appears when header is hidden */}
+      <Animated.View
+        style={[
+          styles.floatingBackButton,
+          {
+            opacity: scrollY.interpolate({
+              inputRange: [0, 100],
+              outputRange: [0, 1],
+              extrapolate: 'clamp',
+            }),
+            transform: [
+              {
+                translateY: scrollY.interpolate({
+                  inputRange: [0, 100],
+                  outputRange: [50, 0],
+                  extrapolate: 'clamp',
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <TouchableOpacity onPress={goBack} style={styles.floatingBackButtonInner}>
+          <Ionicons name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -713,6 +768,13 @@ const styles = StyleSheet.create({
     top: '55%',
     left: -20,
   },
+  headerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+  },
   header: {
     paddingHorizontal: 20,
     paddingTop: 8,
@@ -727,6 +789,7 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flex: 1,
+    paddingTop: 100, // Space for the header
   },
   headerContent: {
     flexDirection: "row",
@@ -766,13 +829,28 @@ const styles = StyleSheet.create({
     color: "#fff",
     letterSpacing: 0.3,
   },
-  filterButton: {
+  headerSpacer: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    alignItems: "center",
-    justifyContent: "center",
+  },
+  floatingBackButton: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    zIndex: 1001,
+  },
+  floatingBackButtonInner: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#4CAF50',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    elevation: 8,
   },
   statsContainer: {
     flexDirection: "row",
