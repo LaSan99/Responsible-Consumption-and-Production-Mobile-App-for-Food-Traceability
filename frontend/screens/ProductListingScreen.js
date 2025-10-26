@@ -558,25 +558,63 @@ export default function ProductListingScreen({ navigation }) {
           </View>
         </Animated.View>
 
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={20} color="#6B7280" style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search products..."
-              placeholderTextColor="#9CA3AF"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              returnKeyType="search"
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
-                <Ionicons name="close-circle" size={20} color="#6B7280" />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
+        {/* Enhanced Search Bar */}
+        <Animated.View 
+          style={[
+            styles.searchContainer,
+            {
+              opacity: statsAnim,
+              transform: [
+                {
+                  translateY: statsAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [20, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <LinearGradient
+            colors={["#FFFFFF", "#F8FFFE"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.searchBarGradient}
+          >
+            <View style={styles.searchBar}>
+              <View style={styles.searchIconContainer}>
+                <Ionicons name="search" size={22} color="#4CAF50" />
+              </View>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search products by name, category, origin..."
+                placeholderTextColor="#9CA3AF"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                returnKeyType="search"
+                autoCorrect={false}
+                autoCapitalize="none"
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+                  <View style={styles.clearButtonInner}>
+                    <Ionicons name="close" size={18} color="#6B7280" />
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
+          </LinearGradient>
+          
+          {/* Search Results Indicator */}
+          {searchQuery.length > 0 && (
+            <View style={styles.searchIndicator}>
+              <Ionicons name="funnel" size={14} color="#4CAF50" />
+              <Text style={styles.searchIndicatorText}>
+                Showing {filteredProducts.length} of {products.length} products
+              </Text>
+            </View>
+          )}
+        </Animated.View>
 
         {/* Products Title */}
         <View style={styles.productsHeader}>
@@ -1089,34 +1127,80 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  searchBarGradient: {
+    borderRadius: 20,
+    shadowColor: '#4CAF50',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.2)',
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    shadowColor: '#000',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderRadius: 20,
+  },
+  searchIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+    shadowColor: '#4CAF50',
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 8,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-  },
-  searchIcon: {
-    marginRight: 12,
+    shadowRadius: 4,
+    elevation: 2,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
     color: '#374151',
     fontWeight: '500',
+    lineHeight: 22,
   },
   clearButton: {
-    marginLeft: 8,
-    padding: 4,
+    marginLeft: 12,
+  },
+  clearButtonInner: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  searchIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.2)',
+  },
+  searchIndicatorText: {
+    fontSize: 12,
+    color: '#4CAF50',
+    fontWeight: '600',
+    marginLeft: 6,
+    letterSpacing: 0.3,
   },
 });
