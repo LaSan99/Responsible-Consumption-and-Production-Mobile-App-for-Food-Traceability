@@ -96,22 +96,22 @@ export default function HomeScreen({ navigation }) {
       screen: 'Scanner'
     },
    
-    {
-      title: 'Analytics',
-      icon: 'stats-chart',
-      iconFamily: 'Ionicons',
-      description: 'Insights',
-      gradient: ['#fa709a', '#dcc22fff'],
-      screen: 'Analytics'
-    },
-    {
-      title: 'Certificates',
-      icon: 'certificate',
-      iconFamily: 'FontAwesome5',
-      description: 'Credentials',
-      gradient:  ['#4facfe', '#41c0c7ff'],
-      screen: 'Certifications'
-    },
+    // {
+    //   title: 'Analytics',
+    //   icon: 'stats-chart',
+    //   iconFamily: 'Ionicons',
+    //   description: 'Insights',
+    //   gradient: ['#fa709a', '#dcc22fff'],
+    //   screen: 'Analytics'
+    // },
+    // {
+    //   title: 'Certificates',
+    //   icon: 'certificate',
+    //   iconFamily: 'FontAwesome5',
+    //   description: 'Credentials',
+    //   gradient:  ['#4facfe', '#41c0c7ff'],
+    //   screen: 'Certifications'
+    // },
     {
       title: 'Find Farmer',
       icon: 'place',
