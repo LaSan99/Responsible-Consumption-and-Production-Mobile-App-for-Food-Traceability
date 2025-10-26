@@ -14,6 +14,7 @@ import {
   Image,
 } from "react-native";
 import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import apiConfig from "../config/api";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -187,6 +188,7 @@ const ProductCard = ({ product, onPress, index }) => {
 export default function ProductListingScreen({ navigation }) {
   const [products, setProducts] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [userRole, setUserRole] = useState(null);
   const [analytics, setAnalytics] = useState({
     totalProducts: 0,
     categorizedProducts: 0,
@@ -203,6 +205,7 @@ export default function ProductListingScreen({ navigation }) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
+    loadUserRole();
     fetchProducts();
     
     // Start animations
@@ -245,9 +248,35 @@ export default function ProductListingScreen({ navigation }) {
     ).start();
   }, []);
 
+  const loadUserRole = async () => {
+    try {
+      const userData = await AsyncStorage.getItem('user');
+      if (userData) {
+        const user = JSON.parse(userData);
+        setUserRole(user.role);
+      }
+    } catch (error) {
+      console.error('Error loading user role:', error);
+    }
+  };
+
   const fetchProducts = async () => {
     try {
-      const response = await axios.get(`${apiConfig.baseURL}/products`);
+      let response;
+      const token = await AsyncStorage.getItem('token');
+      const userData = await AsyncStorage.getItem('user');
+      const user = userData ? JSON.parse(userData) : null;
+      
+      // If producer: fetch only their products (authenticated)
+      // If consumer: fetch all products (public)
+      if (user && user.role === 'producer' && token) {
+        response = await axios.get(`${apiConfig.baseURL}/products/producer/my-products`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } else {
+        response = await axios.get(`${apiConfig.baseURL}/products`);
+      }
+      
       const productsData = response.data;
       setProducts(productsData);
       
@@ -284,7 +313,7 @@ export default function ProductListingScreen({ navigation }) {
         traceabilityScore
       });
     } catch (error) {
-      console.error(error);
+      console.error('Error fetching products:', error);
       Alert.alert("Error", "Failed to fetch products");
     }
   };
