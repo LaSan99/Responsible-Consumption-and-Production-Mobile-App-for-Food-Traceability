@@ -29,20 +29,25 @@ import apiConfig from '../config/api';
 
 const { width, height } = Dimensions.get('window');
 
-export default function AddProductScreen({ navigation }) {
+export default function AddProductScreen({ navigation, route }) {
+  const editingProduct = route?.params?.product; // Get product from navigation params if editing
+  const isEditMode = !!editingProduct;
+  
   const [productData, setProductData] = useState({
-    name: '',
-    batch_code: '',
-    description: '',
-    category: '',
-    origin: '',
-    harvest_date: '',
-    expiry_date: '',
+    name: editingProduct?.name || '',
+    batch_code: editingProduct?.batch_code || '',
+    description: editingProduct?.description || '',
+    category: editingProduct?.category || '',
+    origin: editingProduct?.origin || '',
+    harvest_date: editingProduct?.harvest_date || '',
+    expiry_date: editingProduct?.expiry_date || '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [focusedField, setFocusedField] = useState('');
-  const [productImage, setProductImage] = useState(null);
-  const [qrCodeData, setQrCodeData] = useState(null);
+  const [productImage, setProductImage] = useState(
+    editingProduct?.product_image ? { uri: `${apiConfig.baseURL}/${editingProduct.product_image}` } : null
+  );
+  const [qrCodeData, setQrCodeData] = useState(editingProduct?.qr_code_data || null);
   const qrCodeRef = useRef(null);
   
   // Date picker states
@@ -496,10 +501,13 @@ export default function AddProductScreen({ navigation }) {
     try {
       const token = await AsyncStorage.getItem('token');
       
-      // Capture QR code image
-      console.log('Starting QR code capture...');
-      const qrCodeImageUri = await captureQRCode();
-      console.log('QR code capture result:', qrCodeImageUri);
+      // Capture QR code image (only for new products or if QR changed)
+      let qrCodeImageUri = null;
+      if (!isEditMode || qrCodeData !== editingProduct?.qr_code_data) {
+        console.log('Starting QR code capture...');
+        qrCodeImageUri = await captureQRCode();
+        console.log('QR code capture result:', qrCodeImageUri);
+      }
       
       // Create FormData for file upload
       const formData = new FormData();
@@ -510,11 +518,13 @@ export default function AddProductScreen({ navigation }) {
       formData.append('origin', productData.origin.trim());
       formData.append('harvest_date', productData.harvest_date.trim());
       formData.append('expiry_date', productData.expiry_date.trim());
-      formData.append('qr_code_data', qrCodeData);
-      console.log('QR code data being sent:', qrCodeData);
+      if (qrCodeData) {
+        formData.append('qr_code_data', qrCodeData);
+        console.log('QR code data being sent:', qrCodeData);
+      }
       
-      // Add product image if selected
-      if (productImage) {
+      // Add product image if selected and it's a new upload (not existing image)
+      if (productImage && !productImage.uri.startsWith('http')) {
         console.log('Adding image to form data:', productImage);
         formData.append('product_image', {
           uri: productImage.uri,
@@ -522,7 +532,7 @@ export default function AddProductScreen({ navigation }) {
           name: 'product_image.jpg',
         });
       } else {
-        console.log('No image selected');
+        console.log('Using existing image or no image selected');
       }
 
       // Add QR code image if generated
@@ -535,21 +545,61 @@ export default function AddProductScreen({ navigation }) {
         });
       }
       
-      const response = await axios.post(
-        `${apiConfig.baseURL}/products`,
-        formData,
-        {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data'
+      let response;
+      if (isEditMode) {
+        // Update existing product
+        response = await axios.put(
+          `${apiConfig.baseURL}/products/${editingProduct.id}`,
+          formData,
+          {
+            headers: { 
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'multipart/form-data'
+            }
           }
-        }
-      );
+        );
+      } else {
+        // Create new product
+        response = await axios.post(
+          `${apiConfig.baseURL}/products`,
+          formData,
+          {
+            headers: { 
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'multipart/form-data'
+            }
+          }
+        );
+      }
 
-      Alert.alert(
-        'Success!',
-        'Product has been added successfully',
-        [
+      // Show different alert options for create vs update
+      if (isEditMode) {
+        // For update: close modal and return to Products tab
+        Alert.alert(
+          'Success!',
+          'Product has been updated successfully',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Close the modal by going back
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                } else {
+                  // If can't go back, navigate to Products tab
+                  navigation.navigate('MainTabs', { screen: 'Products' });
+                }
+              },
+              style: 'default'
+            }
+          ]
+        );
+      } else {
+        // For create: show "Add Another" and "Go to Dashboard"
+        Alert.alert(
+          'Success!',
+          'Product has been added successfully',
+          [
             {
               text: 'Add Another',
               onPress: () => {
@@ -570,15 +620,25 @@ export default function AddProductScreen({ navigation }) {
                 animateProgress(0);
               }
             },
-          {
-            text: 'Go to Dashboard',
-            onPress: () => navigation.navigate('HomeScreen'),
-            style: 'default'
-          }
-        ]
-      );
+            {
+              text: 'Done',
+              onPress: () => {
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                } else {
+                  navigation.navigate('MainTabs', { screen: 'Dashboard' });
+                }
+              },
+              style: 'default'
+            }
+          ]
+        );
+      }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Failed to add product. Please try again.';
+      console.error('Error saving product:', error);
+      console.error('Error response:', error.response?.data);
+      const errorMessage = error.response?.data?.message || 
+        (isEditMode ? 'Failed to update product. Please try again.' : 'Failed to add product. Please try again.');
       Alert.alert('Error', errorMessage);
     } finally {
       setIsLoading(false);
@@ -650,7 +710,7 @@ export default function AddProductScreen({ navigation }) {
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Add New Product</Text>
+            <Text style={styles.headerTitle}>{isEditMode ? 'Edit Product' : 'Add New Product'}</Text>
             <Text style={styles.headerSubtitle}>Food Traceability System</Text>
             
             {/* Progress Analytics */}
@@ -909,8 +969,8 @@ export default function AddProductScreen({ navigation }) {
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
                   <>
-                    <Ionicons name="add-circle-outline" size={20} color="#fff" />
-                    <Text style={styles.addButtonText}>Add Product</Text>
+                    <Ionicons name={isEditMode ? "checkmark-circle-outline" : "add-circle-outline"} size={20} color="#fff" />
+                    <Text style={styles.addButtonText}>{isEditMode ? 'Update Product' : 'Add Product'}</Text>
                   </>
                 )}
               </LinearGradient>

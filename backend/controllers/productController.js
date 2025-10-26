@@ -97,10 +97,53 @@ exports.getProductsByProducer = (req, res) => {
 };
 
 exports.updateProduct = (req, res) => {
-  const { name, batch_code, description } = req.body;
-  Product.update(req.params.id, name, batch_code, description, (err) => {
-    if (err) return res.status(500).json({ message: 'Error updating product', error: err });
-    res.json({ message: 'Product updated' });
+  console.log('=== PRODUCT UPDATE REQUEST ===');
+  console.log('Headers:', req.headers);
+  console.log('Product ID:', req.params.id);
+  
+  uploadMultiple(req, res, (err) => {
+    if (err) {
+      console.log('File upload error:', err);
+      return res.status(400).json({ message: 'File upload error', error: err.message });
+    }
+
+    const { name, batch_code, description, category, origin, harvest_date, expiry_date, qr_code_data } = req.body;
+    
+    if (!name || !batch_code) {
+      return res.status(400).json({ message: 'Name and batch code required' });
+    }
+
+    // Get the uploaded file paths (only if new files were uploaded)
+    const product_image = req.files && req.files.product_image ? req.files.product_image[0].path : undefined;
+    const qr_code_image = req.files && req.files.qr_code_image ? req.files.qr_code_image[0].path : undefined;
+    
+    console.log('Request body:', req.body);
+    console.log('Uploaded files:', req.files);
+    console.log('Product image path:', product_image);
+    console.log('QR code image path:', qr_code_image);
+    console.log('User ID:', req.user ? req.user.id : 'No user');
+
+    Product.update(
+      req.params.id, 
+      name, 
+      batch_code, 
+      description, 
+      category, 
+      origin, 
+      harvest_date, 
+      expiry_date, 
+      product_image, 
+      qr_code_image, 
+      qr_code_data, 
+      (err) => {
+        if (err) {
+          console.log('Database error:', err);
+          return res.status(500).json({ message: 'Error updating product', error: err });
+        }
+        console.log('Product updated successfully');
+        res.json({ message: 'Product updated successfully' });
+      }
+    );
   });
 };
 

@@ -320,6 +320,18 @@ const ProfileScreen = ({ navigation }) => {
     const isExpiringSoon = daysUntilExpiry !== null && daysUntilExpiry <= 7;
     const isExpired = daysUntilExpiry !== null && daysUntilExpiry < 0;
 
+    const getStockPercentage = () => {
+      const maxStock = 200; // Assume max stock for progress bar
+      return (product.stock / maxStock) * 100;
+    };
+
+    const getStockColor = () => {
+      const percentage = getStockPercentage();
+      if (percentage > 50) return '#10B981';
+      if (percentage > 20) return '#F59E0B';
+      return '#EF4444';
+    };
+
     return (
       <Animated.View
         style={[
@@ -337,88 +349,145 @@ const ProfileScreen = ({ navigation }) => {
           }
         ]}
       >
-        <View style={styles.productHeader}>
-          <View style={styles.productImageContainer}>
-            
-            <View style={[
-              styles.statusBadge,
-              { 
-                backgroundColor: product.status === 'active' 
-                  ? (isExpiringSoon ? '#F59E0B' : (isExpired ? '#EF4444' : '#10B981'))
-                  : '#6B7280' 
-              }
-            ]}>
-              <Text style={styles.statusText}>
-                {isExpired ? 'Expired' : (isExpiringSoon ? 'Expiring Soon' : (product.status === 'active' ? 'Available' : 'Out of Stock'))}
+        {/* Product Image Header with Gradient Overlay */}
+        <View style={styles.productImageHeader}>
+          <Image 
+            source={{ uri: product.product_image || 'https://via.placeholder.com/400x200' }}
+            style={styles.productImage}
+            resizeMode="cover"
+          />
+          <LinearGradient
+            colors={['transparent', 'rgba(0,0,0,0.7)']}
+            style={styles.productImageGradient}
+          />
+          
+          {/* Status Badge */}
+          <View style={[
+            styles.statusBadge,
+            { 
+              backgroundColor: product.status === 'active' 
+                ? (isExpiringSoon ? '#F59E0B' : (isExpired ? '#EF4444' : '#10B981'))
+                : '#6B7280' 
+            }
+          ]}>
+            <Ionicons 
+              name={isExpired ? 'close-circle' : (isExpiringSoon ? 'warning' : (product.status === 'active' ? 'checkmark-circle' : 'ban'))} 
+              size={12} 
+              color="#FFFFFF" 
+            />
+            <Text style={styles.statusText}>
+              {isExpired ? 'Expired' : (isExpiringSoon ? 'Expiring Soon' : (product.status === 'active' ? 'Available' : 'Out of Stock'))}
+            </Text>
+          </View>
+
+          {/* Product Name on Image */}
+          <View style={styles.productNameOverlay}>
+            <Text style={styles.productNameOnImage} numberOfLines={2}>{product.name}</Text>
+            <Text style={styles.productBatchOnImage}>Batch: {product.batch_code}</Text>
+          </View>
+        </View>
+
+        {/* Product Info Section */}
+        <View style={styles.productContent}>
+          {/* Price and Category Row */}
+          <View style={styles.priceRow}>
+            <View style={styles.priceContainer}>
+              <Text style={styles.priceLabel}>Price</Text>
+              <Text style={styles.productPrice}>LKR {product.price}</Text>
+            </View>
+            <View style={styles.categoryBadge}>
+              <Ionicons name="pricetag" size={14} color="#4CAF50" />
+              <Text style={styles.categoryText}>{product.category}</Text>
+            </View>
+          </View>
+
+          {/* Description */}
+          <Text style={styles.productDescription} numberOfLines={2}>
+            {product.description}
+          </Text>
+
+          {/* Stock Progress Bar */}
+          <View style={styles.stockSection}>
+            <View style={styles.stockHeader}>
+              <Text style={styles.stockLabel}>
+                <Ionicons name="cube-outline" size={14} color="#6B7280" /> Stock Level
+              </Text>
+              <Text style={[
+                styles.stockValue,
+                product.stock === 0 ? styles.outOfStock : styles.inStock
+              ]}>
+                {product.stock} units
+              </Text>
+            </View>
+            <View style={styles.stockProgressBar}>
+              <View 
+                style={[
+                  styles.stockProgressFill, 
+                  { 
+                    width: `${Math.min(getStockPercentage(), 100)}%`,
+                    backgroundColor: getStockColor()
+                  }
+                ]} 
+              />
+            </View>
+          </View>
+
+          {/* Details Grid */}
+          <View style={styles.detailsGrid}>
+            <View style={styles.detailCard}>
+              <Ionicons name="location-outline" size={16} color="#6B7280" />
+              <Text style={styles.detailCardLabel}>Location</Text>
+              <Text style={styles.detailCardValue} numberOfLines={1}>{product.location}</Text>
+            </View>
+            <View style={styles.detailCard}>
+              <Ionicons name="calendar-outline" size={16} color="#6B7280" />
+              <Text style={styles.detailCardLabel}>Harvest</Text>
+              <Text style={styles.detailCardValue}>{formatDate(product.harvest_date)}</Text>
+            </View>
+            <View style={styles.detailCard}>
+              <Ionicons 
+                name="time-outline" 
+                size={16} 
+                color={isExpired ? '#EF4444' : (isExpiringSoon ? '#F59E0B' : '#6B7280')} 
+              />
+              <Text style={styles.detailCardLabel}>Expires</Text>
+              <Text style={[
+                styles.detailCardValue,
+                isExpired ? styles.expiredText : (isExpiringSoon ? styles.expiringSoonText : styles.normalText)
+              ]}>
+                {daysUntilExpiry !== null && !isExpired ? `${daysUntilExpiry}d` : formatDate(product.expiry_date)}
               </Text>
             </View>
           </View>
 
-          <View style={styles.productBasicInfo}>
-            <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
-            <Text style={styles.productBatch}>Batch: {product.batch_code}</Text>
-            <Text style={styles.productPrice}>LKR {product.price}</Text>
-          </View>
-        </View>
+          {/* Certifications */}
+          {product.certifications && product.certifications.length > 0 && (
+            <View style={styles.certificationsContainer}>
+              <Ionicons name="shield-checkmark" size={16} color="#4CAF50" />
+              <Text style={styles.certificationsText}>
+                {product.certifications.join(' • ')}
+              </Text>
+            </View>
+          )}
 
-        <Text style={styles.productDescription} numberOfLines={2}>
-          {product.description}
-        </Text>
-
-        <View style={styles.productDetails}>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Category:</Text>
-            <Text style={styles.detailValue}>{product.category}</Text>
+          {/* Action Buttons */}
+          <View style={styles.productActions}>
+            <TouchableOpacity style={[styles.actionButton, styles.editButton]}>
+              <Ionicons name="create-outline" size={18} color="#4CAF50" />
+              <Text style={styles.editButtonText}>Edit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionButton, styles.viewButton]}>
+              <LinearGradient
+                colors={['#4CAF50', '#45a049']}
+                style={styles.viewButtonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Ionicons name="eye-outline" size={18} color="#FFFFFF" />
+                <Text style={styles.viewButtonText}>View Details</Text>
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Stock:</Text>
-            <Text style={[
-              styles.detailValue, 
-              product.stock === 0 ? styles.outOfStock : styles.inStock
-            ]}>
-              {product.stock} units
-            </Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Harvest:</Text>
-            <Text style={styles.detailValue}>{formatDate(product.harvest_date)}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Expires:</Text>
-            <Text style={[
-              styles.detailValue,
-              isExpired ? styles.expiredText : (isExpiringSoon ? styles.expiringSoonText : styles.normalText)
-            ]}>
-              {formatDate(product.expiry_date)}
-              {daysUntilExpiry !== null && !isExpired && (
-                <Text style={styles.daysText}> ({daysUntilExpiry} days)</Text>
-              )}
-            </Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Location:</Text>
-            <Text style={styles.detailValue}>{product.location}</Text>
-          </View>
-        </View>
-
-        {product.certifications && product.certifications.length > 0 && (
-          <View style={styles.certifications}>
-            <Ionicons name="ribbon-outline" size={14} color="#6B7280" />
-            <Text style={styles.certificationsText}>
-              {product.certifications.join(', ')}
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.productActions}>
-          <TouchableOpacity style={[styles.actionButton, styles.editButton]}>
-            <Ionicons name="create-outline" size={16} color="#4CAF50" />
-            <Text style={styles.editButtonText}>Edit</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionButton, styles.viewButton]}>
-            <Ionicons name="eye-outline" size={16} color="#FFFFFF" />
-            <Text style={styles.viewButtonText}>View Details</Text>
-          </TouchableOpacity>
         </View>
       </Animated.View>
     );
@@ -729,41 +798,136 @@ const ProfileScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* Enhanced Products Section for Producer */}
+        {/* Products Management Card for Producer */}
         {user?.role === 'producer' && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View>
-                <Text style={styles.sectionTitle}>My Products</Text>
+                <Text style={styles.sectionTitle}>Products Management</Text>
                 <Text style={styles.sectionSubtitle}>
-                  Manage your product listings, inventory, and track expiry dates
+                  View and manage all your product listings
                 </Text>
               </View>
-              <TouchableOpacity style={styles.seeAllButton}>
-                <Text style={styles.seeAllText}>Manage All</Text>
-                <Ionicons name="chevron-forward" size={16} color="#4CAF50" />
-              </TouchableOpacity>
             </View>
             
-            {products.length > 0 ? (
-              <View style={styles.productsContainer}>
-                {products.map((product, index) => (
-                  <ProductCard key={product.id || index} product={product} index={index} />
-                ))}
-              </View>
-            ) : (
-              <View style={styles.emptyState}>
-                <Ionicons name="cube-outline" size={48} color="#9CA3AF" />
-                <Text style={styles.emptyStateTitle}>No Products Listed</Text>
-                <Text style={styles.emptyStateText}>
-                  Start adding your farm products to showcase them to customers and track your inventory
-                </Text>
-                <TouchableOpacity style={styles.addProductButton}>
-                  <Ionicons name="add" size={20} color="#FFFFFF" />
-                  <Text style={styles.addProductText}>Add First Product</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+            <TouchableOpacity 
+              style={styles.productsManagementCard}
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('Products')}
+            >
+              <LinearGradient
+                colors={['#4CAF50', '#45a049', '#388E3C']}
+                style={styles.productsManagementGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                {/* Background Pattern */}
+                <View style={styles.cardPattern}>
+                  <View style={styles.patternCircle1} />
+                  <View style={styles.patternCircle2} />
+                  <View style={styles.patternCircle3} />
+                </View>
+
+                {/* Card Content */}
+                <View style={styles.managementCardContent}>
+                  {/* Icon and Title */}
+                  <View style={styles.managementCardHeader}>
+                    <View style={styles.managementIconContainer}>
+                      <Ionicons name="cube" size={32} color="#FFFFFF" />
+                    </View>
+                    <View style={styles.managementHeaderText}>
+                      <Text style={styles.managementCardTitle}>Your Products</Text>
+                      <Text style={styles.managementCardSubtitle}>
+                        Complete inventory management
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Stats Row */}
+                  <View style={styles.managementStatsRow}>
+                    <View style={styles.miniStatCard}>
+                      <Text style={styles.miniStatValue}>{products.length}</Text>
+                      <Text style={styles.miniStatLabel}>Total Products</Text>
+                    </View>
+                    <View style={styles.miniStatDivider} />
+                    <View style={styles.miniStatCard}>
+                      <Text style={styles.miniStatValue}>
+                        {products.filter(p => p.status === 'active').length}
+                      </Text>
+                      <Text style={styles.miniStatLabel}>Active</Text>
+                    </View>
+                    <View style={styles.miniStatDivider} />
+                    <View style={styles.miniStatCard}>
+                      <Text style={styles.miniStatValue}>
+                        {products.reduce((sum, p) => sum + (p.stock || 0), 0)}
+                      </Text>
+                      <Text style={styles.miniStatLabel}>Total Stock</Text>
+                    </View>
+                  </View>
+
+                  {/* Recent Products Preview */}
+                  {products.length > 0 && (
+                    <View style={styles.recentProductsPreview}>
+                      <Text style={styles.recentProductsTitle}>Recent Products:</Text>
+                      <View style={styles.productThumbnails}>
+                        {products.slice(0, 4).map((product, index) => (
+                          <View 
+                            key={product.id || index} 
+                            style={[
+                              styles.productThumbnail,
+                              { marginLeft: index > 0 ? -12 : 0, zIndex: 4 - index }
+                            ]}
+                          >
+                            <Image
+                              source={{ uri: product.product_image || 'https://via.placeholder.com/100' }}
+                              style={styles.thumbnailImage}
+                            />
+                          </View>
+                        ))}
+                        {products.length > 4 && (
+                          <View style={[styles.productThumbnail, styles.moreThumbnail, { marginLeft: -12 }]}>
+                            <Text style={styles.moreThumbnailText}>+{products.length - 4}</Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Call to Action */}
+                  <View style={styles.managementCardAction}>
+                    <Text style={styles.managementActionText}>
+                      View All Products & Details
+                    </Text>
+                    <View style={styles.arrowIconContainer}>
+                      <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+                    </View>
+                  </View>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            {/* Quick Action Buttons */}
+            <View style={styles.quickActionsRow}>
+              <TouchableOpacity 
+                style={styles.quickActionButton}
+                onPress={() => navigation.navigate('AddProduct')}
+              >
+                <View style={styles.quickActionIcon}>
+                  <Ionicons name="add-circle" size={24} color="#4CAF50" />
+                </View>
+                <Text style={styles.quickActionText}>Add New Product</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.quickActionButton}
+                onPress={() => navigation.navigate('Products')}
+              >
+                <View style={styles.quickActionIcon}>
+                  <Ionicons name="analytics" size={24} color="#3B82F6" />
+                </View>
+                <Text style={styles.quickActionText}>View Analytics</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
@@ -1347,96 +1511,198 @@ const styles = StyleSheet.create({
   },
   // Enhanced Product Card Styles
   productsContainer: {
-    gap: 16,
+    gap: 20,
   },
   productCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 20,
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: '#E5E7EB',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  productImageHeader: {
+    position: 'relative',
+    height: 200,
+    width: '100%',
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
+  },
+  productImageGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 120,
+  },
+  productNameOverlay: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    right: 16,
+  },
+  productNameOnImage: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 4,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  productBatchOnImage: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    opacity: 0.9,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  statusBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 4,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
       },
       android: {
-        elevation: 3,
+        elevation: 4,
       },
     }),
   },
-  productHeader: {
+  statusText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  productContent: {
+    padding: 20,
+  },
+  priceRow: {
     flexDirection: 'row',
-    marginBottom: 12,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  productImageContainer: {
-    position: 'relative',
-    marginRight: 12,
-  },
-  productImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
-  },
-  productBasicInfo: {
+  priceContainer: {
     flex: 1,
   },
-  productName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  productBatch: {
+  priceLabel: {
     fontSize: 12,
     color: '#6B7280',
-    marginBottom: 6,
+    fontWeight: '500',
+    marginBottom: 4,
   },
   productPrice: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontWeight: '800',
     color: '#4CAF50',
   },
-  statusBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+  categoryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
   },
-  statusText: {
-    fontSize: 10,
+  categoryText: {
+    fontSize: 13,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#15803D',
   },
   productDescription: {
     fontSize: 14,
     color: '#6B7280',
-    marginBottom: 16,
-    lineHeight: 20,
+    marginBottom: 20,
+    lineHeight: 22,
   },
-  productDetails: {
-    marginBottom: 16,
+  stockSection: {
+    marginBottom: 20,
+    backgroundColor: '#F9FAFB',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
   },
-  detailRow: {
+  stockHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  detailLabel: {
+  stockLabel: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  stockValue: {
     fontSize: 14,
+    fontWeight: '700',
+  },
+  stockProgressBar: {
+    height: 8,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  stockProgressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  detailsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 20,
+  },
+  detailCard: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  detailCardLabel: {
+    fontSize: 11,
     color: '#6B7280',
     fontWeight: '500',
+    marginTop: 6,
+    marginBottom: 4,
   },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
+  detailCardValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#111827',
+    textAlign: 'center',
   },
   inStock: {
     color: '#10B981',
@@ -1451,22 +1717,25 @@ const styles = StyleSheet.create({
     color: '#F59E0B',
   },
   normalText: {
-    color: '#374151',
+    color: '#111827',
   },
-  daysText: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  certifications: {
+  certificationsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    backgroundColor: '#FFFBEB',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#FEF3C7',
+    gap: 8,
   },
   certificationsText: {
+    flex: 1,
     fontSize: 12,
-    color: '#6B7280',
-    marginLeft: 6,
-    fontStyle: 'italic',
+    color: '#92400E',
+    fontWeight: '600',
   },
   productActions: {
     flexDirection: 'row',
@@ -1477,27 +1746,272 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 8,
-    gap: 6,
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
   },
   editButton: {
     backgroundColor: '#F3F4F6',
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#E5E7EB',
   },
   viewButton: {
-    backgroundColor: '#4CAF50',
+    overflow: 'hidden',
+    borderWidth: 0,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#4CAF50',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  viewButtonGradient: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: 8,
   },
   editButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
     color: '#4CAF50',
   },
   viewButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  // Products Management Card Styles
+  productsManagementCard: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    marginBottom: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#4CAF50',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  productsManagementGradient: {
+    padding: 24,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  cardPattern: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  patternCircle1: {
+    position: 'absolute',
+    top: -40,
+    right: -40,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  patternCircle2: {
+    position: 'absolute',
+    bottom: -60,
+    left: -60,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  patternCircle3: {
+    position: 'absolute',
+    top: '40%',
+    right: '30%',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  managementCardContent: {
+    position: 'relative',
+    zIndex: 1,
+  },
+  managementCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  managementIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  managementHeaderText: {
+    flex: 1,
+  },
+  managementCardTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  managementCardSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.9)',
+    fontWeight: '500',
+  },
+  managementStatsRow: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  miniStatCard: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  miniStatValue: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  miniStatLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.9)',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  miniStatDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    marginHorizontal: 12,
+  },
+  recentProductsPreview: {
+    marginBottom: 20,
+  },
+  recentProductsTitle: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.9)',
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  productThumbnails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  productThumbnail: {
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    backgroundColor: '#F3F4F6',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+  },
+  moreThumbnail: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  moreThumbnailText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  managementCardAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  managementActionText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    flex: 1,
+  },
+  arrowIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quickActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  quickActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  quickActionIcon: {
+    marginRight: 12,
+  },
+  quickActionText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#374151',
+    flex: 1,
   },
   emptyState: {
     alignItems: 'center',
