@@ -774,10 +774,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 1000,
+    paddingTop: 40, // Added top padding to prevent header cutoff
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 16,
     paddingBottom: 20,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
@@ -789,7 +790,7 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flex: 1,
-    paddingTop: 100, // Space for the header
+    paddingTop: 140, // Increased space for the header with top margin
   },
   headerContent: {
     flexDirection: "row",
@@ -835,7 +836,7 @@ const styles = StyleSheet.create({
   },
   floatingBackButton: {
     position: 'absolute',
-    top: 50,
+    top: 90, // Adjusted for increased header margin
     left: 20,
     zIndex: 1001,
   },
