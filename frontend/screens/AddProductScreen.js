@@ -572,10 +572,34 @@ export default function AddProductScreen({ navigation, route }) {
         );
       }
 
-      Alert.alert(
-        'Success!',
-        isEditMode ? 'Product has been updated successfully' : 'Product has been added successfully',
-        [
+      // Show different alert options for create vs update
+      if (isEditMode) {
+        // For update: close modal and return to Products tab
+        Alert.alert(
+          'Success!',
+          'Product has been updated successfully',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Close the modal by going back
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                } else {
+                  // If can't go back, navigate to Products tab
+                  navigation.navigate('MainTabs', { screen: 'Products' });
+                }
+              },
+              style: 'default'
+            }
+          ]
+        );
+      } else {
+        // For create: show "Add Another" and "Go to Dashboard"
+        Alert.alert(
+          'Success!',
+          'Product has been added successfully',
+          [
             {
               text: 'Add Another',
               onPress: () => {
@@ -596,13 +620,20 @@ export default function AddProductScreen({ navigation, route }) {
                 animateProgress(0);
               }
             },
-          {
-            text: 'Go to Dashboard',
-            onPress: () => navigation.navigate('HomeScreen'),
-            style: 'default'
-          }
-        ]
-      );
+            {
+              text: 'Done',
+              onPress: () => {
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                } else {
+                  navigation.navigate('MainTabs', { screen: 'Dashboard' });
+                }
+              },
+              style: 'default'
+            }
+          ]
+        );
+      }
     } catch (error) {
       console.error('Error saving product:', error);
       console.error('Error response:', error.response?.data);
