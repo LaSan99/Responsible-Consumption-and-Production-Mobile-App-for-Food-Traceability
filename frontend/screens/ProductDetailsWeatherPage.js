@@ -21,22 +21,23 @@ import apiConfig from "../config/api";
 
 const { width, height } = Dimensions.get('window');
 
-// Product images
+// High-quality product images from Unsplash
 const PRODUCT_IMAGES = {
-  default: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop',
-  dairy: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400&h=300&fit=crop',
-  meat: 'https://images.unsplash.com/photo-1594041680534-e8c8cdebd659?w=400&h=300&fit=crop',
-  vegetable: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&h=300&fit=crop',
-  fruit: 'https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=400&h=300&fit=crop',
-  grains: 'https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?w=400&h=300&fit=crop',
+  default: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&h=400&fit=crop&q=80',
+  dairy: 'https://images.unsplash.com/photo-1566772940195-0d1353e58d55?w=500&h=400&fit=crop&q=80',
+  meat: 'https://images.unsplash.com/photo-1594041680534-e8c8cdebd659?w=500&h=400&fit=crop&q=80',
+  vegetable: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=500&h=400&fit=crop&q=80',
+  fruit: 'https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=500&h=400&fit=crop&q=80',
+  grains: 'https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?w=500&h=400&fit=crop&q=80',
 };
 
+// High-quality weather background images
 const WEATHER_BACKGROUNDS = {
-  sunny: 'https://images.unsplash.com/photo-1504608524841-42fe6f032b4b?w=800&h=400&fit=crop',
-  cloudy: 'https://images.unsplash.com/photo-1562155618-e1a8bc2eb12f?w=800&h=400&fit=crop',
-  rainy: 'https://images.unsplash.com/photo-1519692933481-e162a57d6721?w=800&h=400&fit=crop',
-  snowy: 'https://images.unsplash.com/photo-1418985991508-e47386d96a71?w=800&h=400&fit=crop',
-  default: 'https://images.unsplash.com/photo-1501630834273-4b5604d2ee31?w=800&h=400&fit=crop',
+  sunny: 'https://images.unsplash.com/photo-1504608524841-42fe6f032b4b?w=900&h=500&fit=crop&q=85',
+  cloudy: 'https://images.unsplash.com/photo-1562155618-e1a8bc2eb12f?w=900&h=500&fit=crop&q=85',
+  rainy: 'https://images.unsplash.com/photo-1519692933481-e162a57d6721?w=900&h=500&fit=crop&q=85',
+  snowy: 'https://images.unsplash.com/photo-1418985991508-e47386d96a71?w=900&h=500&fit=crop&q=85',
+  default: 'https://images.unsplash.com/photo-1501630834273-4b5604d2ee31?w=900&h=500&fit=crop&q=85',
 };
 
 const ProductDetailsWeatherPage = ({ route, navigation }) => {
@@ -52,6 +53,8 @@ const ProductDetailsWeatherPage = ({ route, navigation }) => {
   const [safetyStatus, setSafetyStatus] = useState('');
   const [riskLevel, setRiskLevel] = useState('');
   const [recommendation, setRecommendation] = useState('');
+  const [detailedSuggestions, setDetailedSuggestions] = useState([]);
+  const [weatherBackground, setWeatherBackground] = useState(WEATHER_BACKGROUNDS.default);
   
   // Animation values
   const fadeAnim = useState(new Animated.Value(0))[0];
@@ -96,8 +99,156 @@ const ProductDetailsWeatherPage = ({ route, navigation }) => {
     return 'partly-sunny';
   };
 
+  // Generate detailed safety suggestions
+  const generateDetailedSuggestions = (temp, daysUntilExpiry, safetyStatus, productCategory) => {
+    const suggestions = [];
+    const category = productCategory?.toLowerCase() || '';
+
+    // Expiry-based suggestions
+    if (daysUntilExpiry <= 0) {
+      suggestions.push({
+        icon: '🚫',
+        title: 'Immediate Disposal Required',
+        description: 'Product has expired and may harbor harmful bacteria.',
+        reason: 'Expired products can cause food poisoning regardless of storage conditions.',
+        urgency: 'high'
+      });
+      
+      suggestions.push({
+        icon: '⚠️',
+        title: 'Do Not Consume',
+        description: 'This product poses serious health risks if consumed.',
+        reason: 'Bacterial growth accelerates significantly after expiry date.',
+        urgency: 'critical'
+      });
+    } else if (daysUntilExpiry <= 2) {
+      suggestions.push({
+        icon: '⏰',
+        title: 'Consume Immediately',
+        description: 'Product expires within 2 days - use it today.',
+        reason: 'Near expiry combined with current temperature accelerates spoilage.',
+        urgency: 'high'
+      });
+    } else if (daysUntilExpiry <= 5) {
+      suggestions.push({
+        icon: '👀',
+        title: 'Monitor Closely',
+        description: 'Check product daily for any signs of spoilage.',
+        reason: 'Moderate expiry timeframe requires regular quality checks.',
+        urgency: 'medium'
+      });
+    } else {
+      suggestions.push({
+        icon: '✅',
+        title: 'Good Expiry Buffer',
+        description: 'Product has sufficient time before expiry.',
+        reason: 'Adequate days remaining provide flexibility in consumption.',
+        urgency: 'low'
+      });
+    }
+
+    // Temperature-based suggestions
+    if (temp > 30) {
+      suggestions.push({
+        icon: '🔥',
+        title: 'High Temperature Alert',
+        description: 'Move product to cooler storage immediately.',
+        reason: `Temperatures above 30°C cause rapid bacterial growth in ${category} products.`,
+        urgency: 'high'
+      });
+      
+      if (category.includes('dairy') || category.includes('milk')) {
+        suggestions.push({
+          icon: '🥛',
+          title: 'Dairy Safety Critical',
+          description: 'Refrigerate below 4°C within 1 hour.',
+          reason: 'Dairy products spoil 4x faster in temperatures above 30°C.',
+          urgency: 'critical'
+        });
+      }
+      
+      if (category.includes('meat')) {
+        suggestions.push({
+          icon: '🍖',
+          title: 'Meat Safety Emergency',
+          description: 'Consume immediately or freeze.',
+          reason: 'Meat develops dangerous bacteria within 2 hours at 30°C+.',
+          urgency: 'critical'
+        });
+      }
+    } else if (temp > 25) {
+      suggestions.push({
+        icon: '⚠️',
+        title: 'Moderate Temperature Warning',
+        description: 'Store in coolest available location.',
+        reason: 'Ideal bacterial growth range is 25-30°C for most food products.',
+        urgency: 'medium'
+      });
+    } else {
+      suggestions.push({
+        icon: '✅',
+        title: 'Optimal Storage Temperature',
+        description: 'Current temperature is ideal for product preservation.',
+        reason: 'Temperatures below 25°C significantly slow bacterial growth.',
+        urgency: 'low'
+      });
+    }
+
+    // Category-specific suggestions
+    if (category.includes('dairy') || category.includes('milk')) {
+      suggestions.push({
+        icon: '❄️',
+        title: 'Dairy Storage Tip',
+        description: 'Maintain temperature below 4°C for maximum freshness.',
+        reason: 'Dairy products are highly susceptible to temperature fluctuations.',
+        urgency: 'info'
+      });
+    }
+    
+    if (category.includes('meat')) {
+      suggestions.push({
+        icon: '🍖',
+        title: 'Meat Handling Advice',
+        description: 'Keep refrigerated and separate from other foods.',
+        reason: 'Raw meat requires strict temperature control to prevent cross-contamination.',
+        urgency: 'info'
+      });
+    }
+    
+    if (category.includes('vegetable') || category.includes('fruit')) {
+      suggestions.push({
+        icon: '🥬',
+        title: 'Produce Preservation',
+        description: 'Store in cool, dry place away from direct sunlight.',
+        reason: 'Fruits and vegetables maintain freshness better in stable, cool environments.',
+        urgency: 'info'
+      });
+    }
+
+    // Safety status specific suggestions
+    if (safetyStatus === 'VERY_SAFE') {
+      suggestions.push({
+        icon: '🎉',
+        title: 'Ideal Conditions',
+        description: 'Product is in perfect storage conditions.',
+        reason: 'Combination of good temperature and sufficient expiry timeframe.',
+        urgency: 'low'
+      });
+    } else if (safetyStatus === 'UNSAFE') {
+      suggestions.push({
+        icon: '🚨',
+        title: 'Safety Critical',
+        description: 'DO NOT CONSUME UNDER ANY CIRCUMSTANCES.',
+        reason: 'Product poses immediate health risk due to expiry and temperature conditions.',
+        urgency: 'critical'
+      });
+    }
+
+    return suggestions.slice(0, 6); // Limit to 6 most important suggestions
+  };
+
   // Calculate safety status based on temperature and expiry
-  const calculateSafetyStatus = (temp, daysUntilExpiry) => {
+  const calculateSafetyStatus = (temp, daysUntilExpiry, productCategory) => {
     let status = '';
     let level = '';
     let recommendation = '';
@@ -149,6 +300,10 @@ const ProductDetailsWeatherPage = ({ route, navigation }) => {
         recommendation = 'Ideal storage conditions. Product is fresh and safe.';
       }
     }
+
+    // Generate detailed suggestions
+    const suggestions = generateDetailedSuggestions(temp, daysUntilExpiry, status, productCategory);
+    setDetailedSuggestions(suggestions);
 
     return { status, level, recommendation };
   };
@@ -321,8 +476,12 @@ const ProductDetailsWeatherPage = ({ route, navigation }) => {
       const currentTemp = Math.round(weatherInfo.main.temp);
       setTemperature(currentTemp);
       
+      // Update weather background based on condition
+      const background = getWeatherBackground(weatherInfo.weather[0].main);
+      setWeatherBackground(background);
+      
       // Calculate safety status with both temperature and expiry
-      const safety = calculateSafetyStatus(currentTemp, daysUntilExpiry);
+      const safety = calculateSafetyStatus(currentTemp, daysUntilExpiry, product?.category);
       setSafetyStatus(safety.status);
       setRiskLevel(safety.level);
       setRecommendation(safety.recommendation);
@@ -335,7 +494,7 @@ const ProductDetailsWeatherPage = ({ route, navigation }) => {
       
       const fallbackTemp = 28;
       setTemperature(fallbackTemp);
-      const safety = calculateSafetyStatus(fallbackTemp, daysUntilExpiry);
+      const safety = calculateSafetyStatus(fallbackTemp, daysUntilExpiry, product?.category);
       setSafetyStatus(safety.status);
       setRiskLevel(safety.level);
       setRecommendation(safety.recommendation);
@@ -523,7 +682,16 @@ const ProductDetailsWeatherPage = ({ route, navigation }) => {
   const weatherCondition = weatherData?.weather?.[0]?.description;
   const weatherIcon = getWeatherConditionIcon(weatherData?.weather?.[0]?.main);
   const humidity = weatherData?.main?.humidity;
-  const weatherBackground = getWeatherBackground(weatherData?.weather?.[0]?.main);
+
+  const getSuggestionUrgencyStyle = (urgency) => {
+    switch (urgency) {
+      case 'critical': return styles.criticalSuggestion;
+      case 'high': return styles.highSuggestion;
+      case 'medium': return styles.mediumSuggestion;
+      case 'low': return styles.lowSuggestion;
+      default: return styles.infoSuggestion;
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -545,7 +713,7 @@ const ProductDetailsWeatherPage = ({ route, navigation }) => {
             imageStyle={styles.weatherBackgroundImage}
           >
             <LinearGradient
-              colors={['rgba(0,0,0,0.4)', 'rgba(0,0,0,0.6)']}
+              colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.6)']}
               style={styles.weatherOverlay}
             >
               <View style={styles.weatherTopRow}>
@@ -562,15 +730,31 @@ const ProductDetailsWeatherPage = ({ route, navigation }) => {
               <View style={styles.weatherMain}>
                 {temperature !== null && (
                   <Animated.View style={[styles.temperatureMain, { transform: [{ scale: pulseAnim }] }]}>
-                    <Ionicons name={weatherIcon} size={48} color="#fff" />
+                    <Ionicons name={weatherIcon} size={52} color="#fff" />
                     <View style={styles.temperatureInfo}>
                       <Text style={styles.temperature}>{temperature}°C</Text>
                       <Text style={styles.weatherCondition}>
-                        {weatherCondition || 'Loading...'}
+                        {weatherCondition || 'Loading weather...'}
                       </Text>
                     </View>
                   </Animated.View>
                 )}
+              </View>
+
+              {/* Weather Details */}
+              <View style={styles.weatherDetails}>
+                <View style={styles.weatherDetailItem}>
+                  <Ionicons name="water" size={16} color="#93c5fd" />
+                  <Text style={styles.weatherDetailText}>
+                    {humidity || '--'}% Humidity
+                  </Text>
+                </View>
+                <View style={styles.weatherDetailItem}>
+                  <Ionicons name="speedometer" size={16} color="#93c5fd" />
+                  <Text style={styles.weatherDetailText}>
+                    {weatherData?.main?.pressure || '--'} hPa
+                  </Text>
+                </View>
               </View>
             </LinearGradient>
           </ImageBackground>
@@ -597,7 +781,7 @@ const ProductDetailsWeatherPage = ({ route, navigation }) => {
           >
             <View style={styles.safetyHeader}>
               <View style={styles.safetyIconContainer}>
-                <Ionicons name={safetyInfo.icon} size={32} color={safetyInfo.color} />
+                <Ionicons name={safetyInfo.icon} size={36} color={safetyInfo.color} />
               </View>
               <View style={styles.safetyTextContainer}>
                 <Text style={[styles.safetyStatus, { color: safetyInfo.color }]}>
@@ -633,6 +817,47 @@ const ProductDetailsWeatherPage = ({ route, navigation }) => {
             </View>
           </Animated.View>
 
+          {/* Detailed Safety Suggestions */}
+          {detailedSuggestions.length > 0 && (
+            <Animated.View 
+              style={[
+                styles.suggestionsCard,
+                {
+                  opacity: fadeAnim,
+                  transform: [{ translateY: slideAnim }]
+                }
+              ]}
+            >
+              <View style={styles.suggestionsHeader}>
+                <MaterialIcons name="lightbulb" size={26} color="#7c3aed" />
+                <Text style={styles.suggestionsTitle}>Safety Recommendations</Text>
+              </View>
+              
+              <View style={styles.suggestionsList}>
+                {detailedSuggestions.map((suggestion, index) => (
+                  <View 
+                    key={index}
+                    style={[
+                      styles.suggestionItem,
+                      getSuggestionUrgencyStyle(suggestion.urgency)
+                    ]}
+                  >
+                    <Text style={styles.suggestionIcon}>{suggestion.icon}</Text>
+                    <View style={styles.suggestionContent}>
+                      <Text style={styles.suggestionTitle}>{suggestion.title}</Text>
+                      <Text style={styles.suggestionDescription}>
+                        {suggestion.description}
+                      </Text>
+                      <Text style={styles.suggestionReason}>
+                        Why: {suggestion.reason}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </Animated.View>
+          )}
+
           {/* Recommendation Card */}
           <Animated.View 
             style={[
@@ -644,19 +869,19 @@ const ProductDetailsWeatherPage = ({ route, navigation }) => {
             ]}
           >
             <View style={styles.recommendationHeader}>
-              <MaterialIcons name="recommend" size={24} color="#7c3aed" />
-              <Text style={styles.recommendationTitle}>Safety Recommendation</Text>
+              <MaterialIcons name="recommend" size={26} color="#7c3aed" />
+              <Text style={styles.recommendationTitle}>Safety Summary</Text>
             </View>
             <Text style={styles.recommendationText}>{recommendation}</Text>
             
             <View style={styles.conditionSummary}>
               <View style={styles.conditionItem}>
-                <Ionicons name="thermometer" size={16} color="#dc2626" />
+                <Ionicons name="thermometer" size={18} color="#dc2626" />
                 <Text style={styles.conditionLabel}>Temperature:</Text>
                 <Text style={styles.conditionValue}>{temperature}°C</Text>
               </View>
               <View style={styles.conditionItem}>
-                <Ionicons name="calendar" size={16} color="#dc2626" />
+                <Ionicons name="calendar" size={18} color="#dc2626" />
                 <Text style={styles.conditionLabel}>Days until expiry:</Text>
                 <Text style={styles.conditionValue}>
                   {daysUntilExpiry > 0 ? `${daysUntilExpiry} days` : 'EXPIRED'}
@@ -677,12 +902,12 @@ const ProductDetailsWeatherPage = ({ route, navigation }) => {
           >
             <View style={styles.productImageContainer}>
               <Image 
-                source={{ uri: productImage }} 
+                source={{ uri: productImage }}
                 style={styles.productImage}
                 resizeMode="cover"
               />
               <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.7)']}
+                colors={['transparent', 'rgba(0,0,0,0.8)']}
                 style={styles.productImageOverlay}
               />
               <View style={styles.productImageContent}>
@@ -694,12 +919,12 @@ const ProductDetailsWeatherPage = ({ route, navigation }) => {
             <View style={styles.productDetails}>
               <View style={styles.detailRow}>
                 <View style={styles.detailItem}>
-                  <Ionicons name="barcode" size={16} color="#7c3aed" />
+                  <Ionicons name="barcode" size={18} color="#7c3aed" />
                   <Text style={styles.detailLabel}>Batch:</Text>
                   <Text style={styles.detailValue}>{product.batch_code}</Text>
                 </View>
                 <View style={styles.detailItem}>
-                  <Ionicons name="navigate" size={16} color="#7c3aed" />
+                  <Ionicons name="navigate" size={18} color="#7c3aed" />
                   <Text style={styles.detailLabel}>Origin:</Text>
                   <Text style={styles.detailValue}>{product.origin}</Text>
                 </View>
@@ -707,7 +932,7 @@ const ProductDetailsWeatherPage = ({ route, navigation }) => {
               
               <View style={styles.expiryStatusContainer}>
                 <View style={[styles.expiryBadge, { backgroundColor: expiryInfo.bgColor, borderColor: expiryInfo.borderColor }]}>
-                  <Ionicons name={expiryInfo.icon} size={20} color={expiryInfo.color} />
+                  <Ionicons name={expiryInfo.icon} size={22} color={expiryInfo.color} />
                   <Text style={[styles.expiryText, { color: expiryInfo.color }]}>
                     {expiryInfo.message} • {expiryInfo.days > 0 ? `${expiryInfo.days} days` : 'NOW'}
                   </Text>
@@ -727,7 +952,7 @@ const ProductDetailsWeatherPage = ({ route, navigation }) => {
             ]}
           >
             <View style={styles.analysisHeader}>
-              <FontAwesome5 name="temperature-high" size={24} color="#7c3aed" />
+              <FontAwesome5 name="temperature-high" size={26} color="#7c3aed" />
               <Text style={styles.analysisTitle}>Temperature Impact Analysis</Text>
             </View>
 
@@ -762,24 +987,6 @@ const ProductDetailsWeatherPage = ({ route, navigation }) => {
             </View>
           </Animated.View>
 
-          {/* Quick Actions */}
-          <View style={styles.actionsContainer}>
-            <TouchableOpacity style={[
-              styles.actionButton,
-              safetyStatus === 'UNSAFE' || safetyStatus === 'RISKY' ? styles.urgentAction : styles.normalAction
-            ]}>
-              <Ionicons 
-                name={safetyStatus === 'UNSAFE' ? "trash" : "fast-food"} 
-                size={20} 
-                color="#fff" 
-              />
-              <Text style={styles.actionText}>
-                {safetyStatus === 'UNSAFE' ? 'Dispose Product' : 
-                 safetyStatus === 'RISKY' ? 'Consume Immediately' : 'Safe to Store'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
           {/* Footer */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>
@@ -794,6 +1001,8 @@ const ProductDetailsWeatherPage = ({ route, navigation }) => {
     </View>
   );
 };
+
+// ... (keep all the same styles from previous version)
 
 const styles = StyleSheet.create({
   container: {
@@ -854,7 +1063,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
     borderRadius: 20,
     marginLeft: 8,
   },
@@ -867,12 +1076,12 @@ const styles = StyleSheet.create({
   headerButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
     borderRadius: 20,
     marginRight: 8,
   },
   weatherHeader: {
-    height: 200,
+    height: 240,
     paddingHorizontal: 0,
   },
   weatherBackground: {
@@ -899,25 +1108,25 @@ const styles = StyleSheet.create({
   },
   locationText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
     marginLeft: 8,
-    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
+    textShadowRadius: 4,
   },
   liveBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(34, 197, 94, 0.9)',
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
   },
   liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: '#fff',
     marginRight: 6,
   },
@@ -930,31 +1139,49 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 20,
+    marginTop: 10,
   },
   temperatureMain: {
     alignItems: 'center',
     flexDirection: 'row',
   },
   temperatureInfo: {
-    marginLeft: 12,
+    marginLeft: 16,
   },
   temperature: {
     color: '#fff',
-    fontSize: 36,
+    fontSize: 42,
     fontWeight: 'bold',
-    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
+    textShadowRadius: 4,
   },
   weatherCondition: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 14,
+    color: 'rgba(255,255,255,0.95)',
+    fontSize: 16,
     marginTop: 4,
     textTransform: 'capitalize',
     textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
+  },
+  weatherDetails: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    marginTop: 8,
+  },
+  weatherDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 20,
+  },
+  weatherDetailText: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 12,
+    marginLeft: 6,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   scrollView: {
     flex: 1,
@@ -964,133 +1191,214 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
   safetyBanner: {
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 20,
     borderWidth: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
   },
   safetyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   safetyIconContainer: {
-    marginRight: 12,
+    marginRight: 16,
   },
   safetyTextContainer: {
     flex: 1,
   },
   safetyStatus: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   safetyDescription: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#6b7280',
     fontWeight: '500',
   },
   safetyEmoji: {
-    fontSize: 32,
+    fontSize: 36,
   },
   riskLevelContainer: {
-    marginTop: 8,
+    marginTop: 12,
   },
   riskLabels: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   riskLabel: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#6b7280',
     fontWeight: '500',
   },
   riskBarBackground: {
-    height: 8,
+    height: 10,
     backgroundColor: '#e5e7eb',
-    borderRadius: 4,
+    borderRadius: 5,
     overflow: 'hidden',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   riskBarFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 5,
     transition: 'width 0.5s ease-in-out',
   },
   riskLevelText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: 'bold',
     textAlign: 'center',
   },
+  // Suggestions Styles
+  suggestionsCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  suggestionsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  suggestionsTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginLeft: 14,
+  },
+  suggestionsList: {
+    gap: 12,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+  },
+  criticalSuggestion: {
+    backgroundColor: '#fef2f2',
+    borderLeftColor: '#dc2626',
+  },
+  highSuggestion: {
+    backgroundColor: '#fff7ed',
+    borderLeftColor: '#ea580c',
+  },
+  mediumSuggestion: {
+    backgroundColor: '#fffbeb',
+    borderLeftColor: '#f59e0b',
+  },
+  lowSuggestion: {
+    backgroundColor: '#f0fdf4',
+    borderLeftColor: '#10b981',
+  },
+  infoSuggestion: {
+    backgroundColor: '#f0f9ff',
+    borderLeftColor: '#0ea5e9',
+  },
+  suggestionIcon: {
+    fontSize: 24,
+    marginRight: 12,
+    marginTop: 2,
+  },
+  suggestionContent: {
+    flex: 1,
+  },
+  suggestionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  suggestionDescription: {
+    fontSize: 14,
+    color: '#4b5563',
+    marginBottom: 6,
+    lineHeight: 20,
+  },
+  suggestionReason: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontStyle: 'italic',
+    lineHeight: 16,
+  },
   recommendationCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
   },
   recommendationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   recommendationTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#1f2937',
-    marginLeft: 12,
+    marginLeft: 14,
   },
   recommendationText: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#4b5563',
-    lineHeight: 20,
-    marginBottom: 16,
+    lineHeight: 22,
+    marginBottom: 18,
   },
   conditionSummary: {
     backgroundColor: '#f8fafc',
-    padding: 12,
-    borderRadius: 8,
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#7c3aed',
   },
   conditionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   conditionLabel: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#6b7280',
     fontWeight: '500',
-    marginLeft: 8,
-    marginRight: 6,
+    marginLeft: 10,
+    marginRight: 8,
   },
   conditionValue: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#374151',
     fontWeight: '600',
   },
   productCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    marginBottom: 16,
+    borderRadius: 20,
+    marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
     overflow: 'hidden',
   },
   productImageContainer: {
-    height: 120,
+    height: 140,
     position: 'relative',
   },
   productImage: {
@@ -1109,29 +1417,29 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 16,
+    padding: 20,
   },
   productName: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 4,
-    textShadowColor: 'rgba(0,0,0,0.5)',
+    marginBottom: 6,
+    textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
+    textShadowRadius: 4,
   },
   productCategory: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.9)',
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.95)',
     fontWeight: '500',
   },
   productDetails: {
-    padding: 16,
+    padding: 20,
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   detailItem: {
     flexDirection: 'row',
@@ -1139,107 +1447,115 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   detailLabel: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#6b7280',
     fontWeight: '500',
-    marginLeft: 6,
-    marginRight: 4,
+    marginLeft: 8,
+    marginRight: 6,
   },
   detailValue: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#374151',
     fontWeight: '600',
   },
   expiryStatusContainer: {
-    marginTop: 8,
+    marginTop: 12,
   },
   expiryBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 2,
   },
   expiryText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: 'bold',
-    marginLeft: 6,
+    marginLeft: 8,
   },
   analysisCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
   },
   analysisHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   analysisTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#1f2937',
-    marginLeft: 12,
+    marginLeft: 14,
   },
   temperatureZones: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   tempZone: {
     flex: 1,
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
+    padding: 16,
+    borderRadius: 16,
     backgroundColor: '#f8fafc',
-    marginHorizontal: 4,
-    borderWidth: 2,
+    marginHorizontal: 6,
+    borderWidth: 3,
     borderColor: 'transparent',
   },
   activeZone: {
     borderColor: '#7c3aed',
     backgroundColor: '#faf5ff',
+    shadowColor: '#7c3aed',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   tempRange: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: 'bold',
     color: '#374151',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   tempStatus: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   tempDescription: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#6b7280',
     textAlign: 'center',
+    lineHeight: 14,
   },
   currentTempIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#f8fafc',
-    padding: 12,
-    borderRadius: 8,
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#7c3aed',
   },
   currentTempLabel: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#6b7280',
     fontWeight: '500',
-    marginRight: 8,
+    marginRight: 10,
   },
   currentTempValue: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
   },
   safeTemp: {
@@ -1251,47 +1567,19 @@ const styles = StyleSheet.create({
   dangerTemp: {
     color: '#dc2626',
   },
-  actionsContainer: {
-    marginBottom: 20,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  urgentAction: {
-    backgroundColor: '#dc2626',
-  },
-  normalAction: {
-    backgroundColor: '#7c3aed',
-  },
-  actionText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
   footer: {
     alignItems: 'center',
     padding: 20,
     marginBottom: 20,
   },
   footerText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#9ca3af',
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   footerNote: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#9ca3af',
     textAlign: 'center',
     fontStyle: 'italic',
