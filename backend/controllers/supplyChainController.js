@@ -40,11 +40,33 @@ exports.getProductStages = (req, res) => {
 exports.getStagesByBatchCode = (req, res) => {
   const { batch_code } = req.params;
   SupplyChain.getStagesByBatchCode(batch_code, (err, results) => {
-    if (err) return res.status(500).json({ message: 'Error fetching blockchain stages', error: err });
-    if (results.length === 0) {
-      return res.status(404).json({ message: 'No product found with this batch code' });
+    if (err) {
+      return res.status(500).json({ 
+        message: 'Error fetching blockchain stages', 
+        error: err 
+      });
     }
-    res.json(results);
+    
+    // Product not found in database
+    if (results.productNotFound) {
+      return res.status(404).json({ 
+        message: 'No product found with this batch code',
+        productNotFound: true
+      });
+    }
+    
+    // Product exists but has no stages
+    if (results.noStages) {
+      return res.status(200).json({ 
+        message: 'Product found but no supply chain stages recorded yet',
+        product: results.product,
+        stages: [],
+        noStages: true
+      });
+    }
+    
+    // Product exists with stages
+    res.json(results.stages);
   });
 };
 

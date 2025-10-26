@@ -9,11 +9,14 @@ import {
   Dimensions,
   Alert,
   RefreshControl,
-  Image
+  Image,
+  Share
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
+import * as MediaLibrary from 'expo-media-library';
+import * as FileSystem from 'expo-file-system/legacy';
 import apiConfig from "../config/api";
 
 const { width, height } = Dimensions.get('window');
@@ -51,6 +54,92 @@ export default function ProductDetailScreen({ route, navigation }) {
     if (!dateString) return 'Not specified';
     const date = new Date(dateString);
     return date.toLocaleDateString();
+  };
+
+  const downloadQRCode = async () => {
+    if (!product.qr_code_image) {
+      Alert.alert('Error', 'QR code image not available');
+      return;
+    }
+
+    try {
+      // Check and request permission to save to media library
+      const { status: currentStatus } = await MediaLibrary.getPermissionsAsync();
+      let finalStatus = currentStatus;
+
+      if (currentStatus !== 'granted') {
+        const { status } = await MediaLibrary.requestPermissionsAsync();
+        finalStatus = status;
+      }
+
+      if (finalStatus !== 'granted') {
+        Alert.alert(
+          'Permission Required', 
+          'Please grant permission to save images to your gallery in Settings.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => MediaLibrary.requestPermissionsAsync() }
+          ]
+        );
+        return;
+      }
+
+      // Download the QR code image using legacy FileSystem API
+      const qrCodeUrl = `${apiConfig.baseURL}/${product.qr_code_image.replace(/\\/g, '/')}`;
+      const fileName = `qr_code_${product.batch_code}.png`;
+      const fileUri = FileSystem.documentDirectory + fileName;
+      
+      console.log('Downloading QR code from:', qrCodeUrl);
+      console.log('Saving to:', fileUri);
+      
+      const downloadResult = await FileSystem.downloadAsync(qrCodeUrl, fileUri);
+
+      if (downloadResult.status === 200) {
+        console.log('QR code downloaded successfully');
+        
+        // Save to media library
+        const asset = await MediaLibrary.createAssetAsync(downloadResult.uri);
+        console.log('Asset created:', asset);
+        
+        // Try to create album, but don't fail if it already exists
+        try {
+          await MediaLibrary.createAlbumAsync('Food Traceability QR Codes', asset, false);
+        } catch (albumError) {
+          console.log('Album creation failed (might already exist):', albumError);
+          // Continue anyway, the asset is still saved
+        }
+        
+        Alert.alert(
+          'Success!',
+          'QR code has been saved to your gallery.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        throw new Error(`Failed to download QR code. Status: ${downloadResult.status}`);
+      }
+    } catch (error) {
+      console.error('Error downloading QR code:', error);
+      Alert.alert('Error', `Failed to download QR code: ${error.message}`);
+    }
+  };
+
+  const shareQRCode = async () => {
+    if (!product.qr_code_image) {
+      Alert.alert('Error', 'QR code image not available');
+      return;
+    }
+
+    try {
+      const qrCodeUrl = `${apiConfig.baseURL}/${product.qr_code_image.replace(/\\/g, '/')}`;
+      await Share.share({
+        message: `QR Code for ${product.name} (Batch: ${product.batch_code})`,
+        url: qrCodeUrl,
+        title: `QR Code - ${product.name}`
+      });
+    } catch (error) {
+      console.error('Error sharing QR code:', error);
+      Alert.alert('Error', 'Failed to share QR code. Please try again.');
+    }
   };
 
   const getProductIcon = (productName) => {
@@ -91,11 +180,11 @@ export default function ProductDetailScreen({ route, navigation }) {
   }
 
   return (
-    <LinearGradient
-      colors={['#9C27B0', '#E1BEE7', '#F3E5F5']}
-      style={styles.gradient}
-    >
-      <View style={styles.container}>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#2E7D32', '#4CAF50', '#8BC34A']}
+        style={styles.gradient}
+      >
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
@@ -234,6 +323,50 @@ export default function ProductDetailScreen({ route, navigation }) {
             </View>
           </View>
 
+          {/* QR Code Section */}
+          {product.qr_code_image && (
+            <View style={styles.qrCodeCard}>
+              <View style={styles.qrCodeHeader}>
+                <Ionicons name="qr-code-outline" size={24} color="#9C27B0" />
+                <Text style={styles.qrCodeTitle}>Product QR Code</Text>
+              </View>
+              <View style={styles.qrCodeContainer}>
+                <Image 
+                  source={{ uri: `${apiConfig.baseURL}/${product.qr_code_image.replace(/\\/g, '/')}` }}
+                  style={styles.qrCodeImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.qrCodeBatch}>Batch: {product.batch_code}</Text>
+              </View>
+              <View style={styles.qrCodeActions}>
+                <TouchableOpacity 
+                  style={styles.downloadButton}
+                  onPress={downloadQRCode}
+                >
+                  <LinearGradient
+                    colors={['#4CAF50', '#45a049']}
+                    style={styles.downloadButtonGradient}
+                  >
+                    <Ionicons name="download-outline" size={18} color="#fff" />
+                    <Text style={styles.downloadButtonText}>Download</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.shareButton}
+                  onPress={shareQRCode}
+                >
+                  <LinearGradient
+                    colors={['#2196F3', '#1976D2']}
+                    style={styles.shareButtonGradient}
+                  >
+                    <Ionicons name="share-outline" size={18} color="#fff" />
+                    <Text style={styles.shareButtonText}>Share</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
           {/* Action Buttons */}
           <View style={styles.actionButtonsContainer}>
             <TouchableOpacity 
@@ -270,7 +403,7 @@ export default function ProductDetailScreen({ route, navigation }) {
             </TouchableOpacity>
 
             {/* Certificate Management Button */}
-            <TouchableOpacity 
+            {/* <TouchableOpacity 
               style={styles.secondaryButton}
               onPress={() => navigation.navigate('ProductCertificationManagement', { 
                 productId, 
@@ -284,7 +417,25 @@ export default function ProductDetailScreen({ route, navigation }) {
                 <Ionicons name="settings-outline" size={20} color="#fff" />
                 <Text style={styles.secondaryButtonText}>Manage Certifications</Text>
               </LinearGradient>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
+
+            {/* Blockchain Button */}
+            {/* <TouchableOpacity 
+              style={styles.blockchainButton}
+              onPress={() => navigation.navigate('BlockchainStages', { 
+                productId, 
+                productName: product.name,
+                batchCode: product.batch_code
+              })}
+            >
+              <LinearGradient
+                colors={['#9C27B0', '#7B1FA2']}
+                style={styles.blockchainButtonGradient}
+              >
+                <Ionicons name="link-outline" size={20} color="#fff" />
+                <Text style={styles.blockchainButtonText}>View Blockchain</Text>
+              </LinearGradient>
+            </TouchableOpacity> */}
           </View>
 
           {/* Additional Info Card */}
@@ -299,16 +450,17 @@ export default function ProductDetailScreen({ route, navigation }) {
             </Text>
           </View>
         </ScrollView>
-      </View>
-    </LinearGradient>
+      </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
   container: {
+    flex: 1,
+    backgroundColor: '#E8F5E9',
+  },
+  gradient: {
     flex: 1,
   },
   loadingContainer: {
@@ -360,7 +512,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 50,
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 24,
   },
   backButton: {
     width: 40,
@@ -390,15 +542,22 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flex: 1,
+    backgroundColor: '#E8F5E9',
   },
   imageContainer: {
-    width: width,
-    height: 200,
-    backgroundColor: '#e5e7eb',
+    width: width - 40,
+    height: 240,
+    backgroundColor: '#FFFFFF',
     marginHorizontal: 20,
-    marginTop: 10,
-    borderRadius: 12,
+    marginTop: 16,
+    marginBottom: 16,
+    borderRadius: 24,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 16,
+    elevation: 8,
   },
   productImage: {
     width: '100%',
@@ -427,16 +586,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   productCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     marginHorizontal: 20,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 24,
+    padding: 24,
     marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 16,
+    elevation: 8,
   },
   productHeader: {
     flexDirection: 'row',
@@ -444,15 +603,15 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   productIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#f8f9fa',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#E8F5E9',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
     borderWidth: 2,
-    borderColor: '#9C27B0',
+    borderColor: '#4CAF50',
   },
   productIcon: {
     fontSize: 28,
@@ -517,48 +676,50 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   primaryButton: {
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#9C27B0',
-    shadowOffset: { width: 0, height: 4 },
+    borderRadius: 16,
+    marginBottom: 14,
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowRadius: 12,
+    elevation: 6,
   },
   primaryButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: 18,
+    borderRadius: 16,
   },
   primaryButtonText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
+    fontSize: 17,
+    fontWeight: '700',
+    marginLeft: 10,
+    letterSpacing: 0.3,
   },
   checkExpiryButton: {
-    borderRadius: 12,
-    marginBottom: 12,
+    borderRadius: 16,
+    marginBottom: 14,
     shadowColor: '#FF9800',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowRadius: 12,
+    elevation: 6,
   },
   checkExpiryButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: 18,
+    borderRadius: 16,
   },
   checkExpiryButtonText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
+    fontSize: 17,
+    fontWeight: '700',
+    marginLeft: 10,
+    letterSpacing: 0.3,
   },
   secondaryButton: {
     borderRadius: 12,
@@ -582,18 +743,16 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   infoCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     marginHorizontal: 20,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    borderLeftWidth: 4,
-    borderLeftColor: '#9C27B0',
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 30,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 16,
+    elevation: 8,
   },
   infoHeader: {
     flexDirection: 'row',
@@ -610,5 +769,118 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     lineHeight: 20,
+  },
+  qrCodeCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  qrCodeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  qrCodeTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#2c3e50',
+    marginLeft: 12,
+  },
+  qrCodeContainer: {
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 20,
+  },
+  qrCodeImage: {
+    width: 200,
+    height: 200,
+    marginBottom: 12,
+  },
+  qrCodeBatch: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+    fontFamily: 'monospace',
+  },
+  qrCodeActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  downloadButton: {
+    flex: 1,
+    marginRight: 8,
+    borderRadius: 14,
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  downloadButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 14,
+  },
+  downloadButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+  shareButton: {
+    flex: 1,
+    marginLeft: 8,
+    borderRadius: 14,
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  shareButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 14,
+  },
+  shareButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+  blockchainButton: {
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#9C27B0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  blockchainButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+  },
+  blockchainButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
   },
 });

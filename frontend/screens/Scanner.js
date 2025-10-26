@@ -11,7 +11,9 @@ export default function Scanner() {
   const [loading, setLoading] = useState(false);
   const [stages, setStages] = useState([]);
   const [productInfo, setProductInfo] = useState(null);
+  const [errorState, setErrorState] = useState(null);
   const [fadeAnim] = useState(new Animated.Value(0));
+  const alertShownRef = React.useRef(false);
 
   useEffect(() => {
     if (!permission) requestPermission();
@@ -32,24 +34,127 @@ export default function Scanner() {
     setScanned(true);
     const batch_code = data.trim();
     setLoading(true);
+    setErrorState(null);
+    alertShownRef.current = false;
 
     try {
       const response = await axios.get(`${apiConfig.baseURL}/supply-chain/batch/${batch_code}`);
-      const stagesData = response.data;
-      setStages(stagesData);
       
-      if (stagesData.length > 0) {
+      // Handle case where product exists but has no stages
+      if (response.data.noStages) {
+        setStages([]);
         setProductInfo({
-          name: stagesData[0].product_name,
-          batch_code: stagesData[0].batch_code
+          name: response.data.product.name,
+          batch_code: response.data.product.batch_code
         });
+        // Don't show alert here - the UI will display the empty state
+      } else {
+        // Product exists with stages
+        const stagesData = response.data;
+        setStages(stagesData);
+        
+        if (stagesData.length > 0) {
+          setProductInfo({
+            name: stagesData[0].product_name,
+            batch_code: stagesData[0].batch_code
+          });
+        }
       }
     } catch (error) {
-      console.error(error);
-      const errorMessage = error.response?.status === 404 
-        ? 'No product found with this batch code'
-        : 'Failed to fetch product stages';
-      Alert.alert('Error', errorMessage);
+      // Reset state on error
+      setStages([]);
+      setProductInfo(null);
+      
+      let errorInfo = { type: 'unknown', message: '' };
+      
+      // Handle different error scenarios with user-friendly alerts
+      if (error.response) {
+        // Server responded with an error status
+        if (error.response.status === 404) {
+          errorInfo = {
+            type: 'not_found',
+            title: '❌ Product Not Found',
+            message: 'No product exists with this batch code in our database. Please verify the QR code is correct.'
+          };
+          if (!alertShownRef.current) {
+            alertShownRef.current = true;
+            Alert.alert(
+              errorInfo.title,
+              errorInfo.message,
+              [{ text: 'OK', style: 'default' }]
+            );
+          }
+        } else if (error.response.status === 500) {
+          errorInfo = {
+            type: 'server_error',
+            title: '⚠️ Server Error',
+            message: 'Unable to fetch product information. Please try again later.'
+          };
+          if (!alertShownRef.current) {
+            alertShownRef.current = true;
+            Alert.alert(
+              errorInfo.title,
+              errorInfo.message,
+              [{ text: 'OK', style: 'default' }]
+            );
+          }
+        } else {
+          errorInfo = {
+            type: 'server_error',
+            title: '⚠️ Error',
+            message: `Server returned error: ${error.response.status}. Please try again.`
+          };
+          if (!alertShownRef.current) {
+            alertShownRef.current = true;
+            Alert.alert(
+              errorInfo.title,
+              errorInfo.message,
+              [{ text: 'OK', style: 'default' }]
+            );
+          }
+        }
+      } else if (error.request) {
+        // Request was made but no response received
+        errorInfo = {
+          type: 'network_error',
+          title: '📡 Network Error',
+          message: 'Unable to connect to the server. Please check your internet connection and try again.'
+        };
+        if (!alertShownRef.current) {
+          alertShownRef.current = true;
+          Alert.alert(
+            errorInfo.title,
+            errorInfo.message,
+            [{ text: 'OK', style: 'default' }]
+          );
+        }
+      } else {
+        // Something else happened
+        errorInfo = {
+          type: 'unknown',
+          title: '⚠️ Error',
+          message: 'An unexpected error occurred. Please try scanning again.'
+        };
+        if (!alertShownRef.current) {
+          alertShownRef.current = true;
+          Alert.alert(
+            errorInfo.title,
+            errorInfo.message,
+            [{ text: 'OK', style: 'default' }]
+          );
+        }
+      }
+      
+      setErrorState(errorInfo);
+      
+      // Log error for debugging (only in development)
+      if (__DEV__) {
+        console.log('Scanner error details:', {
+          message: error.message,
+          status: error.response?.status,
+          data: error.response?.data
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -234,6 +339,18 @@ export default function Scanner() {
                     )}
                   />
                 </View>
+              ) : errorState ? (
+                <View style={styles.errorState}>
+                  <Ionicons 
+                    name={errorState.type === 'not_found' ? 'alert-circle-outline' : errorState.type === 'network_error' ? 'cloud-offline-outline' : 'warning-outline'} 
+                    size={64} 
+                    color={errorState.type === 'not_found' ? '#EF4444' : '#F59E0B'} 
+                  />
+                  <Text style={styles.errorTitle}>{errorState.title}</Text>
+                  <Text style={styles.errorDescription}>
+                    {errorState.message}
+                  </Text>
+                </View>
               ) : (
                 <View style={styles.emptyState}>
                   <Ionicons name="cube-outline" size={64} color="#9CA3AF" />
@@ -250,6 +367,8 @@ export default function Scanner() {
                   setScanned(false);
                   setStages([]);
                   setProductInfo(null);
+                  setErrorState(null);
+                  alertShownRef.current = false;
                   fadeAnim.setValue(0);
                 }}
               >
@@ -572,6 +691,26 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptyDescription: {
+    fontSize: 15,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  errorState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#111827',
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorDescription: {
     fontSize: 15,
     color: '#6B7280',
     textAlign: 'center',
