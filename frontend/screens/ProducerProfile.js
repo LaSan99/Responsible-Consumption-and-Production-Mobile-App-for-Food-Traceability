@@ -437,6 +437,13 @@ export default function ProducerProfile({ navigation }) {
                 onPress: navigateToSupplyChain
               },
               {
+                title: 'View Stages',
+                subtitle: 'All products',
+                icon: 'layers-outline',
+                colors: ['#00BCD4', '#0097A7'],
+                onPress: () => navigation.navigate('ProviderProductStages')
+              },
+              {
                 title: 'Certificates',
                 subtitle: 'Manage',
                 icon: 'ribbon-outline',

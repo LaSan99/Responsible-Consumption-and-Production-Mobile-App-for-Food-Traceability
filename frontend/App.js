@@ -23,6 +23,7 @@ import Profile from './screens/Profile';
 // Producer Screens
 import ProducerProfile from './screens/ProducerProfile';
 import AddProductScreen from './screens/AddProductScreen';
+import ProviderProductStagesScreen from './screens/ProviderProductStagesScreen';
 
 // Shared Screens
 import ProductDetailScreen from './screens/ProductDetailScreen';
@@ -325,6 +326,11 @@ export default function App() {
             <Stack.Screen
               name="AddCertification"
               component={AddCertificationScreen}
+              options={{ presentation: 'modal' }}
+            />
+            <Stack.Screen
+              name="ProviderProductStages"
+              component={ProviderProductStagesScreen}
               options={{ presentation: 'modal' }}
             />
           </>
