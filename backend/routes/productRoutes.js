@@ -15,6 +15,6 @@ router.get('/:id', getProductById);
 // Protected: Only producers and admins
 router.post('/', authMiddleware, roleMiddleware('producer', 'admin'), createProduct);
 router.put('/:id', authMiddleware, roleMiddleware('producer', 'admin'), updateProduct);
-router.delete('/:id', authMiddleware, roleMiddleware('admin'), deleteProduct);
+router.delete('/:id', authMiddleware, roleMiddleware('producer', 'admin'), deleteProduct);
 
 module.exports = router;
