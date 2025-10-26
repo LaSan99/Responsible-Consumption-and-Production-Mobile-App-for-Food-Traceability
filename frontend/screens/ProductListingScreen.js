@@ -12,6 +12,7 @@ import {
   Animated,
   RefreshControl,
   Image,
+  TextInput,
 } from "react-native";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -213,6 +214,8 @@ const ProductCard = ({ product, onPress, index, userRole, onEdit, onDelete }) =>
 
 export default function ProductListingScreen({ navigation }) {
   const [products, setProducts] = useState([]);
+  const [filteredProducts, setFilteredProducts] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [analytics, setAnalytics] = useState({
@@ -274,6 +277,26 @@ export default function ProductListingScreen({ navigation }) {
     ).start();
   }, []);
 
+  // Filter products based on search query
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      setFilteredProducts(products);
+    } else {
+      const filtered = products.filter(product => {
+        const query = searchQuery.toLowerCase();
+        return (
+          product.name?.toLowerCase().includes(query) ||
+          product.category?.toLowerCase().includes(query) ||
+          product.origin?.toLowerCase().includes(query) ||
+          product.batch_code?.toLowerCase().includes(query) ||
+          product.description?.toLowerCase().includes(query) ||
+          product.created_by_name?.toLowerCase().includes(query)
+        );
+      });
+      setFilteredProducts(filtered);
+    }
+  }, [searchQuery, products]);
+
   const loadUserRole = async () => {
     try {
       const userData = await AsyncStorage.getItem('user');
@@ -305,6 +328,7 @@ export default function ProductListingScreen({ navigation }) {
       
       const productsData = response.data;
       setProducts(productsData);
+      setFilteredProducts(productsData);
       
       // Calculate analytics
       const totalProducts = productsData.length;
@@ -348,6 +372,10 @@ export default function ProductListingScreen({ navigation }) {
     setRefreshing(true);
     await fetchProducts();
     setRefreshing(false);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery("");
   };
 
   const goBack = () => {
@@ -530,22 +558,55 @@ export default function ProductListingScreen({ navigation }) {
           </View>
         </Animated.View>
 
-        {/* Products Title */}
-        <View style={styles.productsHeader}>
-          <Text style={styles.productsTitle}>All Products</Text>
-          <Text style={styles.productsCount}>{products.length} items</Text>
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBar}>
+            <Ionicons name="search" size={20} color="#6B7280" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search products..."
+              placeholderTextColor="#9CA3AF"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+                <Ionicons name="close-circle" size={20} color="#6B7280" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
-        {products.length === 0 ? (
+        {/* Products Title */}
+        <View style={styles.productsHeader}>
+          <Text style={styles.productsTitle}>
+            {searchQuery ? `Search Results` : `All Products`}
+          </Text>
+          <Text style={styles.productsCount}>
+            {filteredProducts.length} {searchQuery ? 'found' : 'items'}
+          </Text>
+        </View>
+
+        {filteredProducts.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="cube-outline" size={64} color="#D1D5DB" />
-            <Text style={styles.emptyStateTitle}>No Products Yet</Text>
+            <Ionicons 
+              name={searchQuery ? "search-outline" : "cube-outline"} 
+              size={64} 
+              color="#D1D5DB" 
+            />
+            <Text style={styles.emptyStateTitle}>
+              {searchQuery ? "No Products Found" : "No Products Yet"}
+            </Text>
             <Text style={styles.emptyStateText}>
-              Products will appear here once they're added
+              {searchQuery 
+                ? `No products match "${searchQuery}". Try a different search term.`
+                : "Products will appear here once they're added"
+              }
             </Text>
           </View>
         ) : (
-          products.map((product, index) => (
+          filteredProducts.map((product, index) => (
             <ProductCard
               key={product.id || index}
               product={product}
@@ -1025,5 +1086,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#4CAF50',
+  },
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  searchIcon: {
+    marginRight: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  clearButton: {
+    marginLeft: 8,
+    padding: 4,
   },
 });
