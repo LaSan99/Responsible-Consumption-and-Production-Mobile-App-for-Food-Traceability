@@ -162,6 +162,37 @@ const SupplyChain = {
         }
       }
     );
+  },
+
+  // Get all products with their stages for a specific producer (optimized single query)
+  getProducerProductsWithStages: (producer_id, callback) => {
+    db.query(
+      `SELECT 
+         p.id as product_id,
+         p.name as product_name,
+         p.batch_code,
+         p.description,
+         p.category,
+         p.origin,
+         p.harvest_date,
+         p.expiry_date,
+         p.product_image,
+         p.created_at,
+         sc.id as stage_id,
+         sc.stage_name,
+         sc.location,
+         sc.timestamp,
+         sc.description as stage_description,
+         sc.notes,
+         u.full_name as updated_by_name
+       FROM products p
+       LEFT JOIN supply_chain sc ON p.id = sc.product_id
+       LEFT JOIN users u ON sc.updated_by = u.id
+       WHERE p.created_by = ?
+       ORDER BY p.id, sc.timestamp ASC`,
+      [producer_id],
+      callback
+    );
   }
 };
 

@@ -92,3 +92,56 @@ exports.verifyBlockchain = (req, res) => {
     res.json(results);
   });
 };
+
+exports.getProducerProductsWithStages = (req, res) => {
+  SupplyChain.getProducerProductsWithStages(req.user.id, (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: 'Error fetching producer products with stages', error: err });
+    }
+    
+    // Transform flat results into nested structure
+    const productsMap = {};
+    
+    results.forEach(row => {
+      if (!productsMap[row.product_id]) {
+        productsMap[row.product_id] = {
+          id: row.product_id,
+          name: row.product_name,
+          batch_code: row.batch_code,
+          description: row.description,
+          category: row.category,
+          origin: row.origin,
+          harvest_date: row.harvest_date,
+          expiry_date: row.expiry_date,
+          product_image: row.product_image,
+          created_at: row.created_at,
+          stages: []
+        };
+      }
+      
+      // Add stage if it exists
+      if (row.stage_id) {
+        productsMap[row.product_id].stages.push({
+          id: row.stage_id,
+          stage_name: row.stage_name,
+          location: row.location,
+          timestamp: row.timestamp,
+          description: row.stage_description,
+          notes: row.notes,
+          updated_by_name: row.updated_by_name
+        });
+      }
+    });
+    
+    // Convert map to array and add stage count
+    const productsArray = Object.values(productsMap).map(product => ({
+      ...product,
+      stageCount: product.stages.length
+    }));
+    
+    // Sort by stage count (products with more stages first)
+    productsArray.sort((a, b) => b.stageCount - a.stageCount);
+    
+    res.json(productsArray);
+  });
+};

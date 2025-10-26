@@ -7,7 +7,8 @@ const {
   getBlockchainStats, 
   verifyBlockchain,
   getAllStages,
-  getStagesByBatchCode
+  getStagesByBatchCode,
+  getProducerProductsWithStages
 } = require('../controllers/supplyChainController');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
@@ -29,6 +30,9 @@ router.get('/:product_id/verify', verifyBlockchain);
 
 // Protected: producers can view their stages across all products
 router.get('/producer/my-stages', authMiddleware, roleMiddleware('producer'), getProducerStages);
+
+// Protected: producers can view their products with stages (optimized)
+router.get('/producer/products-with-stages', authMiddleware, roleMiddleware('producer'), getProducerProductsWithStages);
 
 // Protected: producers and admins can add stages
 router.post('/:product_id', authMiddleware, roleMiddleware('producer', 'admin'), addStage);
