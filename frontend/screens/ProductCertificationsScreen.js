@@ -10,10 +10,11 @@ import {
   RefreshControl,
   Alert,
   Modal,
-  ScrollView
+  ScrollView,
+  Image
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import apiConfig from "../config/api";
 
@@ -146,10 +147,11 @@ export default function ProductCertificationsScreen({ route, navigation }) {
   const renderCertificateModal = () => {
     if (!selectedCert) return null;
     const certStatus = getCertificationStatus(selectedCert.expiry_date);
+    const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     
     return (
       <Modal
-        animationType="slide"
+        animationType="fade"
         transparent={true}
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
@@ -160,106 +162,185 @@ export default function ProductCertificationsScreen({ route, navigation }) {
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.certificateScrollContent}
             >
-              {/* Certificate Header */}
+              {/* Close Button */}
               <View style={styles.certificateHeader}>
                 <TouchableOpacity
                   onPress={() => setModalVisible(false)}
                   style={styles.closeButton}
                 >
-                  <Ionicons name="close-circle" size={32} color="#9C27B0" />
+                  <Ionicons name="close-circle" size={36} color="#fff" />
                 </TouchableOpacity>
               </View>
 
               {/* Certificate Content */}
               <View style={styles.certificateContent}>
-                {/* Decorative Border */}
-                <View style={styles.certificateBorder}>
-                  <View style={styles.certificateInnerBorder}>
-                    
-                    {/* Top Decorative Elements */}
-                    <View style={styles.certificateTopDecor}>
-                      <View style={styles.decorLine} />
-                      <View style={styles.decorCircle}>
-                        <Text style={styles.certificateBigIcon}>
-                          {getCertificationIcon(selectedCert.name)}
+                <LinearGradient
+                  colors={['#FFFFFF', '#F8F8F8']}
+                  style={styles.certificatePaper}
+                >
+                  {/* Decorative Corner Elements */}
+                  <View style={styles.cornerTopLeft} />
+                  <View style={styles.cornerTopRight} />
+                  <View style={styles.cornerBottomLeft} />
+                  <View style={styles.cornerBottomRight} />
+
+                  {/* Certificate Border */}
+                  <View style={styles.certificateBorder}>
+                    <View style={styles.certificateInnerBorder}>
+                      
+                      {/* Header Section with Logo */}
+                      <View style={styles.certificateLogoSection}>
+                        <View style={styles.logoContainer}>
+                          <Image 
+                            source={require('../assets/UEE_Logo-removebg-preview.png')}
+                            style={styles.certificateLogo}
+                            resizeMode="contain"
+                          />
+                        </View>
+                        <View style={styles.headerTextContainer}>
+                          <Text style={styles.organizationName}>Food Traceability System</Text>
+                          <Text style={styles.organizationSubtitle}>Responsible Consumption & Production</Text>
+                          <View style={styles.sdgBadge}>
+                            <Text style={styles.sdgText}>UN SDG 12</Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Decorative Line */}
+                      <View style={styles.decorativeLine}>
+                        <View style={styles.decorLineLeft} />
+                        <MaterialCommunityIcons name="seal" size={24} color="#9C27B0" />
+                        <View style={styles.decorLineRight} />
+                      </View>
+
+                      {/* Certificate Title */}
+                      <View style={styles.titleSection}>
+                        <Text style={styles.certificateTitle}>OFFICIAL CERTIFICATE</Text>
+                        <Text style={styles.certificateSubtitle}>OF PRODUCT CERTIFICATION</Text>
+                      </View>
+
+                      {/* Certificate Number */}
+                      <View style={styles.certNumberContainer}>
+                        <Text style={styles.certNumberLabel}>Certificate No:</Text>
+                        <Text style={styles.certNumberValue}>FTS-{selectedCert.id}-{new Date(selectedCert.issued_date).getFullYear()}</Text>
+                      </View>
+
+                      {/* Main Certificate Body */}
+                      <View style={styles.certificateBody}>
+                        <Text style={styles.certificateIntroText}>
+                          This is to certify that the product
+                        </Text>
+                        
+                        <View style={styles.productNameContainer}>
+                          <Text style={styles.productNameText}>{productName}</Text>
+                        </View>
+
+                        <Text style={styles.certificateIntroText}>
+                          has been inspected and certified to meet the standards and requirements of
+                        </Text>
+
+                        <View style={styles.certificationNameContainer}>
+                          <View style={styles.certIconBadge}>
+                            <Text style={styles.certIconLarge}>{getCertificationIcon(selectedCert.name)}</Text>
+                          </View>
+                          <Text style={styles.certificationNameLarge}>{selectedCert.name}</Text>
+                        </View>
+
+                        {/* Certification Details */}
+                        <View style={styles.detailsSection}>
+                          <View style={styles.detailsRow}>
+                            <View style={styles.detailBoxHalf}>
+                              <MaterialCommunityIcons name="shield-check" size={20} color="#9C27B0" />
+                              <View style={styles.detailTextContainer}>
+                                <Text style={styles.detailBoxLabel}>Certifying Authority</Text>
+                                <Text style={styles.detailBoxValue}>{selectedCert.authority}</Text>
+                              </View>
+                            </View>
+                            <View style={styles.detailBoxHalf}>
+                              <MaterialCommunityIcons name="calendar-check" size={20} color="#9C27B0" />
+                              <View style={styles.detailTextContainer}>
+                                <Text style={styles.detailBoxLabel}>Date of Issue</Text>
+                                <Text style={styles.detailBoxValue}>{formatDate(selectedCert.issued_date)}</Text>
+                              </View>
+                            </View>
+                          </View>
+
+                          {selectedCert.expiry_date && (
+                            <View style={styles.detailsRow}>
+                              <View style={styles.detailBoxHalf}>
+                                <MaterialCommunityIcons name="calendar-clock" size={20} color="#9C27B0" />
+                                <View style={styles.detailTextContainer}>
+                                  <Text style={styles.detailBoxLabel}>Valid Until</Text>
+                                  <Text style={styles.detailBoxValue}>{formatDate(selectedCert.expiry_date)}</Text>
+                                </View>
+                              </View>
+                              <View style={styles.detailBoxHalf}>
+                                <MaterialCommunityIcons name="certificate" size={20} color="#9C27B0" />
+                                <View style={styles.detailTextContainer}>
+                                  <Text style={styles.detailBoxLabel}>Status</Text>
+                                  <View style={[styles.statusInline, { backgroundColor: certStatus.color }]}>
+                                    <Text style={styles.statusInlineText}>{certStatus.status}</Text>
+                                  </View>
+                                </View>
+                              </View>
+                            </View>
+                          )}
+                        </View>
+
+                        {/* Blockchain Verification */}
+                        <View style={styles.blockchainSection}>
+                          <View style={styles.blockchainHeader}>
+                            <MaterialCommunityIcons name="link-variant" size={20} color="#4CAF50" />
+                            <Text style={styles.blockchainTitle}>Blockchain Verified</Text>
+                          </View>
+                          <Text style={styles.blockchainText}>
+                            This certificate is secured on the blockchain for transparency and traceability
+                          </Text>
+                          <View style={styles.qrCodePlaceholder}>
+                            <MaterialCommunityIcons name="qrcode-scan" size={48} color="#666" />
+                            <Text style={styles.qrCodeText}>Product ID: {productId}</Text>
+                          </View>
+                        </View>
+
+                        {/* Signatures Section */}
+                        <View style={styles.signaturesSection}>
+                          <View style={styles.signatureBox}>
+                            <View style={styles.signatureLine} />
+                            <Text style={styles.signatureLabel}>Authorized Signatory</Text>
+                            <Text style={styles.signatureTitle}>{selectedCert.authority}</Text>
+                          </View>
+                          <View style={styles.officialSeal}>
+                            <View style={styles.sealCircle}>
+                              <MaterialCommunityIcons name="seal" size={40} color="#9C27B0" />
+                              <Text style={styles.sealText}>OFFICIAL{'\n'}SEAL</Text>
+                            </View>
+                          </View>
+                        </View>
+
+                        {/* Verification Badge */}
+                        <View style={styles.verificationFooter}>
+                          <Ionicons name="shield-checkmark" size={24} color="#4CAF50" />
+                          <View style={styles.verificationTextContainer}>
+                            <Text style={styles.verificationTitle}>Digitally Verified & Authenticated</Text>
+                            <Text style={styles.verificationDate}>Verified on: {currentDate}</Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Footer */}
+                      <View style={styles.certificateFooter}>
+                        <View style={styles.footerLine} />
+                        <Text style={styles.footerText}>
+                          This is a computer-generated certificate and is valid without signature
+                        </Text>
+                        <Text style={styles.footerSubtext}>
+                          For verification, scan the QR code or visit our traceability portal
                         </Text>
                       </View>
-                      <View style={styles.decorLine} />
-                    </View>
-
-                    {/* Certificate Title */}
-                    <Text style={styles.certificateTitle}>CERTIFICATE</Text>
-                    <Text style={styles.certificateSubtitle}>OF AUTHENTICITY</Text>
-
-                    {/* Divider */}
-                    <View style={styles.certificateDivider} />
-
-                    {/* Certificate Body */}
-                    <View style={styles.certificateBody}>
-                      <Text style={styles.certificateLabel}>This is to certify that</Text>
-                      
-                      <View style={styles.productNameContainer}>
-                        <Text style={styles.productNameText}>{productName}</Text>
-                      </View>
-
-                      <Text style={styles.certificateLabel}>has been certified for</Text>
-
-                      <View style={styles.certificationNameContainer}>
-                        <Text style={styles.certificationNameLarge}>{selectedCert.name}</Text>
-                      </View>
-
-                      {/* Certification Details Grid */}
-                      <View style={styles.detailsGrid}>
-                        <View style={styles.detailBox}>
-                          <Text style={styles.detailBoxLabel}>Certification Authority</Text>
-                          <Text style={styles.detailBoxValue}>{selectedCert.authority}</Text>
-                        </View>
-
-                        <View style={styles.detailBox}>
-                          <Text style={styles.detailBoxLabel}>Certificate ID</Text>
-                          <Text style={styles.detailBoxValue}>#{selectedCert.id}</Text>
-                        </View>
-
-                        <View style={styles.detailBox}>
-                          <Text style={styles.detailBoxLabel}>Issue Date</Text>
-                          <Text style={styles.detailBoxValue}>{formatDate(selectedCert.issued_date)}</Text>
-                        </View>
-
-                        {selectedCert.expiry_date && (
-                          <View style={styles.detailBox}>
-                            <Text style={styles.detailBoxLabel}>Expiry Date</Text>
-                            <Text style={styles.detailBoxValue}>{formatDate(selectedCert.expiry_date)}</Text>
-                          </View>
-                        )}
-                      </View>
-
-                      {/* Status Badge */}
-                      <View style={styles.certificateStatusContainer}>
-                        <View style={[styles.certificateStatusBadge, { backgroundColor: certStatus.color }]}>
-                          <Ionicons name="shield-checkmark" size={20} color="#fff" />
-                          <Text style={styles.certificateStatusText}>{certStatus.status}</Text>
-                        </View>
-                      </View>
-
-                      {/* Verification Section */}
-                      <View style={styles.verificationSection}>
-                        <View style={styles.verificationBadge}>
-                          <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
-                          <Text style={styles.verificationLabel}>Verified & Authenticated</Text>
-                        </View>
-                      </View>
 
                     </View>
-
-                    {/* Bottom Decorative Elements */}
-                    <View style={styles.certificateBottomDecor}>
-                      <View style={styles.decorLine} />
-                      <Ionicons name="star" size={20} color="#9C27B0" />
-                      <View style={styles.decorLine} />
-                    </View>
-
                   </View>
-                </View>
+                </LinearGradient>
               </View>
             </ScrollView>
           </View>
@@ -577,201 +658,444 @@ const styles = StyleSheet.create({
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContainer: {
     width: width * 0.95,
-    maxHeight: height * 0.9,
-    backgroundColor: '#fff',
-    borderRadius: 20,
+    maxHeight: height * 0.92,
+    backgroundColor: 'transparent',
+    borderRadius: 16,
     overflow: 'hidden',
   },
   certificateScrollContent: {
-    padding: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
   },
   certificateHeader: {
     alignItems: 'flex-end',
     marginBottom: 10,
+    paddingRight: 5,
   },
   closeButton: {
-    padding: 5,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 20,
+    padding: 2,
   },
   certificateContent: {
-    padding: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 15,
+  },
+  certificatePaper: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  // Decorative Corners
+  cornerTopLeft: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 40,
+    height: 40,
+    borderTopWidth: 4,
+    borderLeftWidth: 4,
+    borderColor: '#9C27B0',
+    borderTopLeftRadius: 12,
+  },
+  cornerTopRight: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 40,
+    height: 40,
+    borderTopWidth: 4,
+    borderRightWidth: 4,
+    borderColor: '#9C27B0',
+    borderTopRightRadius: 12,
+  },
+  cornerBottomLeft: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: 40,
+    height: 40,
+    borderBottomWidth: 4,
+    borderLeftWidth: 4,
+    borderColor: '#9C27B0',
+    borderBottomLeftRadius: 12,
+  },
+  cornerBottomRight: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 40,
+    height: 40,
+    borderBottomWidth: 4,
+    borderRightWidth: 4,
+    borderColor: '#9C27B0',
+    borderBottomRightRadius: 12,
   },
   certificateBorder: {
-    borderWidth: 3,
+    margin: 20,
+    borderWidth: 2,
     borderColor: '#9C27B0',
-    borderRadius: 16,
-    padding: 8,
-    backgroundColor: '#fff',
-  },
-  certificateInnerBorder: {
-    borderWidth: 1,
-    borderColor: '#9C27B0',
-    borderRadius: 12,
-    padding: 24,
+    borderRadius: 8,
     backgroundColor: '#FAFAFA',
   },
-  certificateTopDecor: {
+  certificateInnerBorder: {
+    margin: 8,
+    borderWidth: 1,
+    borderColor: '#E1BEE7',
+    borderRadius: 6,
+    padding: 20,
+    backgroundColor: '#FFFFFF',
+  },
+  // Header Section
+  certificateLogoSection: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  logoContainer: {
+    marginBottom: 12,
+  },
+  certificateLogo: {
+    width: 80,
+    height: 80,
+  },
+  headerTextContainer: {
+    alignItems: 'center',
+  },
+  organizationName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#9C27B0',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  organizationSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  sdgBadge: {
+    backgroundColor: '#9C27B0',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  sdgText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  // Decorative Line
+  decorativeLine: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
+    marginVertical: 16,
   },
-  decorLine: {
+  decorLineLeft: {
     flex: 1,
-    height: 2,
+    height: 1,
     backgroundColor: '#9C27B0',
-    marginHorizontal: 10,
+    marginRight: 10,
   },
-  decorCircle: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: '#fff',
-    borderWidth: 3,
-    borderColor: '#9C27B0',
-    justifyContent: 'center',
+  decorLineRight: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#9C27B0',
+    marginLeft: 10,
+  },
+  // Title Section
+  titleSection: {
     alignItems: 'center',
-    shadowColor: '#9C27B0',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  certificateBigIcon: {
-    fontSize: 36,
+    marginBottom: 12,
   },
   certificateTitle: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
-    textAlign: 'center',
     color: '#9C27B0',
-    letterSpacing: 4,
-    marginBottom: 5,
+    letterSpacing: 3,
+    textAlign: 'center',
+    marginBottom: 4,
   },
   certificateSubtitle: {
-    fontSize: 16,
-    textAlign: 'center',
+    fontSize: 14,
     color: '#666',
     letterSpacing: 2,
-    marginBottom: 20,
-  },
-  certificateDivider: {
-    height: 2,
-    backgroundColor: '#9C27B0',
-    marginVertical: 20,
-    opacity: 0.3,
-  },
-  certificateBody: {
-    paddingVertical: 10,
-  },
-  certificateLabel: {
-    fontSize: 16,
     textAlign: 'center',
+  },
+  // Certificate Number
+  certNumberContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: '#F3E5F5',
+    borderRadius: 20,
+    alignSelf: 'center',
+  },
+  certNumberLabel: {
+    fontSize: 12,
     color: '#666',
+    fontWeight: '600',
+    marginRight: 6,
+  },
+  certNumberValue: {
+    fontSize: 13,
+    color: '#9C27B0',
+    fontWeight: 'bold',
+    fontFamily: 'monospace',
+  },
+  // Certificate Body
+  certificateBody: {
+    paddingVertical: 4,
+  },
+  certificateIntroText: {
+    fontSize: 15,
+    color: '#555',
+    textAlign: 'center',
     marginBottom: 12,
-    fontStyle: 'italic',
+    lineHeight: 22,
   },
   productNameContainer: {
     backgroundColor: '#F3E5F5',
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius: 10,
-    marginBottom: 20,
-    borderLeftWidth: 4,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderLeftWidth: 5,
     borderLeftColor: '#9C27B0',
   },
   productNameText: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
-    textAlign: 'center',
     color: '#333',
+    textAlign: 'center',
   },
   certificationNameContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderRadius: 12,
-    marginBottom: 24,
+    marginBottom: 20,
     borderWidth: 2,
     borderColor: '#9C27B0',
-    borderStyle: 'dashed',
+    alignItems: 'center',
+  },
+  certIconBadge: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#F3E5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  certIconLarge: {
+    fontSize: 32,
   },
   certificationNameLarge: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
-    textAlign: 'center',
     color: '#9C27B0',
+    textAlign: 'center',
   },
-  detailsGrid: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+  // Details Section
+  detailsSection: {
+    backgroundColor: '#FAFAFA',
+    borderRadius: 10,
     padding: 16,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
-  detailBox: {
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  detailBoxLabel: {
-    fontSize: 12,
-    color: '#999',
-    marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  detailBoxValue: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '600',
-  },
-  certificateStatusContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  certificateStatusBadge: {
+  detailsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
-  certificateStatusText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
+  detailBoxHalf: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginHorizontal: 4,
+  },
+  detailTextContainer: {
+    flex: 1,
     marginLeft: 8,
   },
-  verificationSection: {
+  detailBoxLabel: {
+    fontSize: 11,
+    color: '#999',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  detailBoxValue: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  statusInline: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+  },
+  statusInlineText: {
+    fontSize: 12,
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  // Blockchain Section
+  blockchainSection: {
     backgroundColor: '#E8F5E9',
-    borderRadius: 12,
+    borderRadius: 10,
     padding: 16,
-    alignItems: 'center',
+    marginBottom: 20,
     borderWidth: 1,
     borderColor: '#4CAF50',
   },
-  verificationBadge: {
+  blockchainHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 8,
   },
-  verificationLabel: {
+  blockchainTitle: {
     fontSize: 16,
-    color: '#4CAF50',
     fontWeight: 'bold',
+    color: '#4CAF50',
     marginLeft: 8,
   },
-  certificateBottomDecor: {
+  blockchainText: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  qrCodePlaceholder: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#4CAF50',
+    borderStyle: 'dashed',
+  },
+  qrCodeText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 8,
+    fontFamily: 'monospace',
+  },
+  // Signatures Section
+  signaturesSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: 20,
+    marginTop: 10,
+  },
+  signatureBox: {
+    flex: 1,
+    marginRight: 10,
+  },
+  signatureLine: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#333',
+    marginBottom: 8,
+    paddingTop: 30,
+  },
+  signatureLabel: {
+    fontSize: 11,
+    color: '#999',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  signatureTitle: {
+    fontSize: 13,
+    color: '#333',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  officialSeal: {
+    width: 100,
+    alignItems: 'center',
+  },
+  sealCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 3,
+    borderColor: '#9C27B0',
+    backgroundColor: '#F3E5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sealText: {
+    fontSize: 9,
+    color: '#9C27B0',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginTop: 4,
+    letterSpacing: 1,
+  },
+  // Verification Footer
+  verificationFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
+    backgroundColor: '#E8F5E9',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  verificationTextContainer: {
+    marginLeft: 10,
+  },
+  verificationTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#4CAF50',
+  },
+  verificationDate: {
+    fontSize: 11,
+    color: '#666',
+  },
+  // Certificate Footer
+  certificateFooter: {
+    alignItems: 'center',
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  footerLine: {
+    width: '50%',
+    height: 1,
+    backgroundColor: '#9C27B0',
+    marginBottom: 12,
+    opacity: 0.3,
+  },
+  footerText: {
+    fontSize: 11,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 4,
+    fontStyle: 'italic',
+  },
+  footerSubtext: {
+    fontSize: 10,
+    color: '#999',
+    textAlign: 'center',
   },
 });
