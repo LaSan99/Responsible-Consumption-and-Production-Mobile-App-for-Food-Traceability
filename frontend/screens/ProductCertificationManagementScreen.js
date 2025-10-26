@@ -10,6 +10,9 @@ import {
   Dimensions,
   RefreshControl,
   TextInput,
+  Modal,
+  Animated,
+  Share,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +30,9 @@ export default function ProductCertificationManagementScreen({ navigation, route
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredCertifications, setFilteredCertifications] = useState([]);
+  const [selectedCertification, setSelectedCertification] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const fadeAnim = useState(new Animated.Value(0))[0];
 
   useEffect(() => {
     loadCertifications();
@@ -39,7 +45,8 @@ export default function ProductCertificationManagementScreen({ navigation, route
     } else {
       const filtered = certifications.filter(cert =>
         cert.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        cert.authority.toLowerCase().includes(searchQuery.toLowerCase())
+        cert.authority.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        cert.certificate_number?.toLowerCase().includes(searchQuery.toLowerCase())
       );
       setFilteredCertifications(filtered);
     }
@@ -129,7 +136,11 @@ export default function ProductCertificationManagementScreen({ navigation, route
   const formatDate = (dateString) => {
     if (!dateString) return 'Not specified';
     const date = new Date(dateString);
-    return date.toLocaleDateString();
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
   };
 
   const getCertificationIcon = (certName) => {
@@ -143,26 +154,185 @@ export default function ProductCertificationManagementScreen({ navigation, route
     if (name.includes('vegan')) return '🌿';
     if (name.includes('iso')) return '📋';
     if (name.includes('haccp')) return '🔬';
+    if (name.includes('usda')) return '🇺🇸';
+    if (name.includes('fda')) return '🏛️';
     return '🏆';
   };
 
   const getCertificationStatus = (expiryDate) => {
-    if (!expiryDate) return { status: 'Active', color: '#4CAF50' };
+    if (!expiryDate) return { status: 'Active', color: '#4CAF50', badgeColor: '#E8F5E8' };
     
     const expiry = new Date(expiryDate);
     const now = new Date();
     const daysUntilExpiry = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
     
-    if (daysUntilExpiry < 0) return { status: 'Expired', color: '#F44336' };
-    if (daysUntilExpiry <= 30) return { status: 'Expiring Soon', color: '#FF9800' };
-    return { status: 'Active', color: '#4CAF50' };
+    if (daysUntilExpiry < 0) return { status: 'Expired', color: '#F44336', badgeColor: '#FFEBEE' };
+    if (daysUntilExpiry <= 30) return { status: 'Expiring Soon', color: '#FF9800', badgeColor: '#FFF3E0' };
+    return { status: 'Active', color: '#4CAF50', badgeColor: '#E8F5E8' };
   };
 
-  const renderCertificationItem = ({ item }) => {
+  const handleViewCertificate = (certification) => {
+    setSelectedCertification(certification);
+    setModalVisible(true);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handleShareCertificate = async (certification) => {
+    try {
+      const shareMessage = `Check out this ${certification.name} certification for ${productName}. Issued by ${certification.authority} on ${formatDate(certification.issued_date)}.`;
+      
+      await Share.share({
+        message: shareMessage,
+        title: `${certification.name} Certification`,
+      });
+    } catch (error) {
+      Alert.alert('Error', 'Failed to share certification');
+    }
+  };
+
+  const closeModal = () => {
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setModalVisible(false);
+      setSelectedCertification(null);
+    });
+  };
+
+  const renderCertificateModal = () => {
+    if (!selectedCertification) return null;
+
+    const certStatus = getCertificationStatus(selectedCertification.expiry_date);
+
+    return (
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={closeModal}
+      >
+        <View style={styles.modalOverlay}>
+          <Animated.View 
+            style={[
+              styles.modalContent,
+              { opacity: fadeAnim }
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Certificate Details</Text>
+              <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.certificatePreview}>
+              <LinearGradient
+                colors={['#f8f9fa', '#e9ecef']}
+                style={styles.certificateGradient}
+              >
+                {/* Certificate Header */}
+                <View style={styles.certificateHeader}>
+                  <View style={styles.certificateSeal}>
+                    <Text style={styles.certificateSealIcon}>
+                      {getCertificationIcon(selectedCertification.name)}
+                    </Text>
+                  </View>
+                  <Text style={styles.certificateTitle}>CERTIFICATE</Text>
+                  <Text style={styles.certificateSubtitle}>OF COMPLIANCE</Text>
+                </View>
+
+                {/* Certificate Body */}
+                <View style={styles.certificateBody}>
+                  <Text style={styles.certificateProductName}>{productName}</Text>
+                  <Text style={styles.certificateAwarded}>is hereby awarded the</Text>
+                  <Text style={styles.certificateName}>{selectedCertification.name}</Text>
+                  <Text style={styles.certificateDescription}>
+                    This certificate acknowledges compliance with all relevant standards and requirements
+                  </Text>
+                </View>
+
+                {/* Certificate Footer */}
+                <View style={styles.certificateFooter}>
+                  <View style={styles.certificateAuthority}>
+                    <Text style={styles.authorityName}>{selectedCertification.authority}</Text>
+                    <Text style={styles.authorityTitle}>Certifying Authority</Text>
+                  </View>
+                  <View style={styles.certificateDates}>
+                    <Text style={styles.certificateDate}>
+                      Issued: {formatDate(selectedCertification.issued_date)}
+                    </Text>
+                    {selectedCertification.expiry_date && (
+                      <Text style={styles.certificateDate}>
+                        Expires: {formatDate(selectedCertification.expiry_date)}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+
+                {/* Certificate ID */}
+                {selectedCertification.certificate_number && (
+                  <View style={styles.certificateIdContainer}>
+                    <Text style={styles.certificateId}>
+                      Certificate ID: {selectedCertification.certificate_number}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Status Ribbon */}
+                <View style={[styles.statusRibbon, { backgroundColor: certStatus.color }]}>
+                  <Text style={styles.statusRibbonText}>{certStatus.status}</Text>
+                </View>
+              </LinearGradient>
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity 
+                style={styles.modalActionButton}
+                onPress={() => handleShareCertificate(selectedCertification)}
+              >
+                <Ionicons name="share-outline" size={20} color="#2196F3" />
+                <Text style={[styles.modalActionText, { color: '#2196F3' }]}>Share</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.modalActionButton, styles.primaryAction]}
+                onPress={closeModal}
+              >
+                <Text style={[styles.modalActionText, { color: '#fff' }]}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderCertificationItem = ({ item, index }) => {
     const certStatus = getCertificationStatus(item.expiry_date);
     
     return (
-      <TouchableOpacity style={styles.certificationCard} activeOpacity={0.8}>
+      <TouchableOpacity 
+        style={[
+          styles.certificationCard,
+          { animationDelay: `${index * 100}ms` }
+        ]} 
+        activeOpacity={0.8}
+        onPress={() => handleViewCertificate(item)}
+      >
+        {/* Certificate Border Effect */}
+        <View style={styles.certificateBorder}>
+          <View style={[styles.cornerDecoration, styles.cornerTopLeft]} />
+          <View style={[styles.cornerDecoration, styles.cornerTopRight]} />
+          <View style={[styles.cornerDecoration, styles.cornerBottomLeft]} />
+          <View style={[styles.cornerDecoration, styles.cornerBottomRight]} />
+        </View>
+
         <View style={styles.certificationHeader}>
           <View style={styles.certificationIconContainer}>
             <Text style={styles.certificationIcon}>{getCertificationIcon(item.name)}</Text>
@@ -170,45 +340,60 @@ export default function ProductCertificationManagementScreen({ navigation, route
           <View style={styles.certificationInfo}>
             <Text style={styles.certificationName}>{item.name}</Text>
             <Text style={styles.certificationAuthority}>
-              Authority: {item.authority}
+              {item.authority}
             </Text>
+            {item.certificate_number && (
+              <Text style={styles.certificateNumber}>
+                Cert ID: {item.certificate_number}
+              </Text>
+            )}
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: certStatus.color }]}>
-            <Text style={styles.statusText}>{certStatus.status}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: certStatus.badgeColor }]}>
+            <View style={[styles.statusDot, { backgroundColor: certStatus.color }]} />
+            <Text style={[styles.statusText, { color: certStatus.color }]}>
+              {certStatus.status}
+            </Text>
           </View>
         </View>
         
         <View style={styles.certificationDetails}>
-          <View style={styles.dateContainer}>
-            <Ionicons name="calendar-outline" size={16} color="#666" />
-            <Text style={styles.dateText}>
-              Issued: {formatDate(item.issued_date)}
-            </Text>
-          </View>
-          {item.expiry_date && (
-            <View style={styles.dateContainer}>
-              <Ionicons name="time-outline" size={16} color="#666" />
-              <Text style={styles.dateText}>
-                Expires: {formatDate(item.expiry_date)}
+          <View style={styles.detailRow}>
+            <View style={styles.detailItem}>
+              <Ionicons name="calendar-outline" size={14} color="#666" />
+              <Text style={styles.detailText}>
+                {formatDate(item.issued_date)}
               </Text>
             </View>
-          )}
+            {item.expiry_date && (
+              <View style={styles.detailItem}>
+                <Ionicons name="time-outline" size={14} color="#666" />
+                <Text style={styles.detailText}>
+                  {formatDate(item.expiry_date)}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
         
         <View style={styles.certificationFooter}>
           <View style={styles.verificationContainer}>
-            <Ionicons name="shield-checkmark" size={16} color="#4CAF50" />
-            <Text style={styles.verificationText}>Verified</Text>
+            <Ionicons name="shield-checkmark" size={14} color="#4CAF50" />
+            <Text style={styles.verificationText}>Verified Certificate</Text>
           </View>
           <View style={styles.certificationActions}>
-            <TouchableOpacity style={styles.actionIconButton}>
+            <TouchableOpacity 
+              style={styles.actionIconButton}
+              onPress={() => handleViewCertificate(item)}
+            >
               <Ionicons name="eye-outline" size={16} color="#666" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionIconButton}>
+            <TouchableOpacity 
+              style={styles.actionIconButton}
+              onPress={() => handleShareCertificate(item)}
+            >
               <Ionicons name="share-outline" size={16} color="#666" />
             </TouchableOpacity>
           </View>
-          <Text style={styles.certificationId}>ID: #{item.id}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -217,11 +402,11 @@ export default function ProductCertificationManagementScreen({ navigation, route
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
       <View style={styles.emptyIconContainer}>
-        <Ionicons name="ribbon-outline" size={64} color="#ccc" />
+        <Ionicons name="ribbon-outline" size={80} color="#ccc" />
       </View>
-      <Text style={styles.emptyTitle}>No Certifications</Text>
+      <Text style={styles.emptyTitle}>No Certifications Yet</Text>
       <Text style={styles.emptySubtitle}>
-        Add certifications to enhance your product's credibility and reach
+        Enhance your product's credibility and market reach by adding professional certifications
       </Text>
       <TouchableOpacity style={styles.emptyButton} onPress={handleAddCertification}>
         <LinearGradient
@@ -271,21 +456,28 @@ export default function ProductCertificationManagementScreen({ navigation, route
         <View style={styles.statsCard}>
           <View style={styles.statItem}>
             <Text style={styles.statNumber}>{certifications.length}</Text>
-            <Text style={styles.statLabel}>Certifications</Text>
+            <Text style={styles.statLabel}>Total</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>
+            <Text style={[styles.statNumber, styles.statActive]}>
               {certifications.filter(cert => getCertificationStatus(cert.expiry_date).status === 'Active').length}
             </Text>
             <Text style={styles.statLabel}>Active</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>
+            <Text style={[styles.statNumber, styles.statExpiring]}>
               {certifications.filter(cert => getCertificationStatus(cert.expiry_date).status === 'Expiring Soon').length}
             </Text>
             <Text style={styles.statLabel}>Expiring</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={[styles.statNumber, styles.statExpired]}>
+              {certifications.filter(cert => getCertificationStatus(cert.expiry_date).status === 'Expired').length}
+            </Text>
+            <Text style={styles.statLabel}>Expired</Text>
           </View>
         </View>
 
@@ -362,6 +554,9 @@ export default function ProductCertificationManagementScreen({ navigation, route
             renderEmptyState()
           )}
         </View>
+
+        {/* Certificate Modal */}
+        {renderCertificateModal()}
       </View>
     </LinearGradient>
   );
@@ -433,128 +628,209 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 12,
+    elevation: 5,
   },
   statItem: {
     flex: 1,
     alignItems: 'center',
   },
   statNumber: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#9C27B0',
+    color: '#666',
+  },
+  statActive: {
+    color: '#4CAF50',
+  },
+  statExpiring: {
+    color: '#FF9800',
+  },
+  statExpired: {
+    color: '#F44336',
   },
   statLabel: {
     fontSize: 12,
     color: '#666',
     marginTop: 4,
+    fontWeight: '500',
   },
   statDivider: {
     width: 1,
-    height: 40,
-    backgroundColor: '#e0e0e0',
+    height: 30,
+    backgroundColor: '#f0f0f0',
   },
   actionButtonsContainer: {
     flexDirection: 'row',
     paddingHorizontal: 20,
     marginBottom: 20,
+    gap: 12,
   },
   actionButton: {
     flex: 1,
-    marginHorizontal: 5,
     borderRadius: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
-    shadowRadius: 4,
+    shadowRadius: 6,
     elevation: 4,
   },
   actionButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: 12,
   },
   actionButtonText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
-    marginLeft: 6,
+    marginLeft: 8,
   },
   certificationsContainer: {
     flex: 1,
     backgroundColor: '#fff',
     marginHorizontal: 20,
-    borderRadius: 16,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     marginBottom: 20,
+    overflow: 'hidden',
   },
   listContent: {
-    padding: 20,
+    padding: 16,
   },
   certificationCard: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
     marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#9C27B0',
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  certificateBorder: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  cornerDecoration: {
+    position: 'absolute',
+    width: 12,
+    height: 12,
+    borderColor: '#9C27B0',
+  },
+  cornerTopLeft: {
+    top: 0,
+    left: 0,
+    borderTopWidth: 2,
+    borderLeftWidth: 2,
+    borderTopLeftRadius: 16,
+  },
+  cornerTopRight: {
+    top: 0,
+    right: 0,
+    borderTopWidth: 2,
+    borderRightWidth: 2,
+    borderTopRightRadius: 16,
+  },
+  cornerBottomLeft: {
+    bottom: 0,
+    left: 0,
+    borderBottomWidth: 2,
+    borderLeftWidth: 2,
+    borderBottomLeftRadius: 16,
+  },
+  cornerBottomRight: {
+    bottom: 0,
+    right: 0,
+    borderBottomWidth: 2,
+    borderRightWidth: 2,
+    borderBottomRightRadius: 16,
   },
   certificationHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
+    alignItems: 'flex-start',
+    marginBottom: 16,
   },
   certificationIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#fff',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F3E5F5',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    borderWidth: 2,
+    borderColor: '#E1BEE7',
   },
   certificationIcon: {
-    fontSize: 20,
+    fontSize: 24,
   },
   certificationInfo: {
     flex: 1,
   },
   certificationName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2D3748',
+    marginBottom: 4,
   },
   certificationAuthority: {
     fontSize: 14,
-    color: '#666',
-    marginTop: 2,
+    color: '#4A5568',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  certificateNumber: {
+    fontSize: 12,
+    color: '#718096',
+    fontFamily: 'monospace',
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 12,
+    marginLeft: 8,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
   },
   statusText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#fff',
   },
   certificationDetails: {
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  dateContainer: {
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  detailItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    flex: 1,
   },
-  dateText: {
-    fontSize: 14,
+  detailText: {
+    fontSize: 13,
     color: '#666',
     marginLeft: 6,
+    fontWeight: '500',
   },
   certificationFooter: {
     flexDirection: 'row',
@@ -569,12 +845,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#4CAF50',
     fontWeight: '600',
-    marginLeft: 4,
+    marginLeft: 6,
   },
-  certificationId: {
-    fontSize: 12,
-    color: '#999',
-    fontFamily: 'monospace',
+  certificationActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f8f9fa',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
   },
   emptyState: {
     flex: 1,
@@ -583,35 +869,36 @@ const styles = StyleSheet.create({
     padding: 40,
   },
   emptyIconContainer: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
+    color: '#2D3748',
+    marginBottom: 12,
+    textAlign: 'center',
   },
   emptySubtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#718096',
     textAlign: 'center',
-    marginBottom: 30,
+    marginBottom: 32,
     lineHeight: 22,
   },
   emptyButton: {
-    borderRadius: 12,
+    borderRadius: 16,
     shadowColor: '#9C27B0',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 5,
+    elevation: 6,
   },
   emptyButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 16,
   },
   emptyButtonText: {
     color: '#fff',
@@ -627,30 +914,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 8,
     elevation: 3,
   },
   searchInput: {
     flex: 1,
     marginLeft: 12,
     fontSize: 16,
-    color: '#333',
-  },
-  certificationActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  actionIconButton: {
-    padding: 8,
-    marginLeft: 8,
-    borderRadius: 8,
-    backgroundColor: '#f0f0f0',
+    color: '#2D3748',
   },
   noResultsContainer: {
     flex: 1,
@@ -661,13 +938,210 @@ const styles = StyleSheet.create({
   noResultsText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#666',
+    color: '#718096',
     marginTop: 16,
     marginBottom: 8,
   },
   noResultsSubtext: {
     fontSize: 14,
-    color: '#999',
+    color: '#A0AEC0',
     textAlign: 'center',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    width: '100%',
+    maxHeight: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2D3748',
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f8f9fa',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  certificatePreview: {
+    padding: 20,
+  },
+  certificateGradient: {
+    borderRadius: 16,
+    padding: 24,
+    borderWidth: 2,
+    borderColor: '#e9ecef',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  certificateHeader: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  certificateSeal: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#9C27B0',
+    marginBottom: 16,
+  },
+  certificateSealIcon: {
+    fontSize: 32,
+  },
+  certificateTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2D3748',
+    letterSpacing: 2,
+  },
+  certificateSubtitle: {
+    fontSize: 14,
+    color: '#718096',
+    fontWeight: '500',
+    letterSpacing: 1,
+  },
+  certificateBody: {
+    alignItems: 'center',
+    marginBottom: 24,
+    paddingVertical: 16,
+  },
+  certificateProductName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#9C27B0',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  certificateAwarded: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+    fontStyle: 'italic',
+  },
+  certificateName: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#2D3748',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  certificateDescription: {
+    fontSize: 14,
+    color: '#718096',
+    textAlign: 'center',
+    lineHeight: 20,
+    fontStyle: 'italic',
+  },
+  certificateFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: 16,
+  },
+  certificateAuthority: {
+    alignItems: 'flex-start',
+  },
+  authorityName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2D3748',
+    marginBottom: 4,
+  },
+  authorityTitle: {
+    fontSize: 12,
+    color: '#718096',
+    fontStyle: 'italic',
+  },
+  certificateDates: {
+    alignItems: 'flex-end',
+  },
+  certificateDate: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  certificateIdContainer: {
+    alignItems: 'center',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef',
+  },
+  certificateId: {
+    fontSize: 12,
+    color: '#718096',
+    fontFamily: 'monospace',
+    fontWeight: '500',
+  },
+  statusRibbon: {
+    position: 'absolute',
+    top: 20,
+    right: -30,
+    paddingHorizontal: 32,
+    paddingVertical: 6,
+    transform: [{ rotate: '45deg' }],
+  },
+  statusRibbonText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#fff',
+    textAlign: 'center',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    gap: 12,
+  },
+  modalActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    backgroundColor: '#f8f9fa',
+  },
+  primaryAction: {
+    backgroundColor: '#9C27B0',
+    borderColor: '#9C27B0',
+  },
+  modalActionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });

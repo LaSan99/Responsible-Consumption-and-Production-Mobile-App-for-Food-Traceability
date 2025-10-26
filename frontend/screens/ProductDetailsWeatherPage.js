@@ -1002,8 +1002,6 @@ const ProductDetailsWeatherPage = ({ route, navigation }) => {
   );
 };
 
-// ... (keep all the same styles from previous version)
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
