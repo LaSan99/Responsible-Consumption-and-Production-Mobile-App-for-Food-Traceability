@@ -14,13 +14,14 @@ import {
   Image,
 } from "react-native";
 import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import apiConfig from "../config/api";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
 const { width } = Dimensions.get("window");
 
-const ProductCard = ({ product, onPress, index }) => {
+const ProductCard = ({ product, onPress, index, userRole, onEdit, onDelete }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
@@ -175,10 +176,36 @@ const ProductCard = ({ product, onPress, index }) => {
           </Text>
         </View>
 
-        <TouchableOpacity style={styles.viewButton} onPress={handlePress}>
-          <Text style={styles.viewButtonText}>Details</Text>
-          <Ionicons name="arrow-forward" size={16} color="#fff" />
-        </TouchableOpacity>
+        <View style={styles.actionButtons}>
+          {/* Producer-only action buttons */}
+          {userRole === 'producer' && (
+            <>
+              <TouchableOpacity 
+                style={styles.editButton} 
+                onPress={(e) => {
+                  e.stopPropagation();
+                  onEdit(product);
+                }}
+              >
+                <Ionicons name="create-outline" size={18} color="#4CAF50" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.deleteButton} 
+                onPress={(e) => {
+                  e.stopPropagation();
+                  onDelete(product);
+                }}
+              >
+                <Ionicons name="trash-outline" size={18} color="#EF4444" />
+              </TouchableOpacity>
+            </>
+          )}
+          
+          <TouchableOpacity style={styles.viewButton} onPress={handlePress}>
+            <Text style={styles.viewButtonText}>Details</Text>
+            <Ionicons name="arrow-forward" size={16} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
     </Animated.View>
   );
@@ -187,6 +214,7 @@ const ProductCard = ({ product, onPress, index }) => {
 export default function ProductListingScreen({ navigation }) {
   const [products, setProducts] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [userRole, setUserRole] = useState(null);
   const [analytics, setAnalytics] = useState({
     totalProducts: 0,
     categorizedProducts: 0,
@@ -203,6 +231,7 @@ export default function ProductListingScreen({ navigation }) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
+    loadUserRole();
     fetchProducts();
     
     // Start animations
@@ -245,9 +274,35 @@ export default function ProductListingScreen({ navigation }) {
     ).start();
   }, []);
 
+  const loadUserRole = async () => {
+    try {
+      const userData = await AsyncStorage.getItem('user');
+      if (userData) {
+        const user = JSON.parse(userData);
+        setUserRole(user.role);
+      }
+    } catch (error) {
+      console.error('Error loading user role:', error);
+    }
+  };
+
   const fetchProducts = async () => {
     try {
-      const response = await axios.get(`${apiConfig.baseURL}/products`);
+      let response;
+      const token = await AsyncStorage.getItem('token');
+      const userData = await AsyncStorage.getItem('user');
+      const user = userData ? JSON.parse(userData) : null;
+      
+      // If producer: fetch only their products (authenticated)
+      // If consumer: fetch all products (public)
+      if (user && user.role === 'producer' && token) {
+        response = await axios.get(`${apiConfig.baseURL}/products/producer/my-products`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } else {
+        response = await axios.get(`${apiConfig.baseURL}/products`);
+      }
+      
       const productsData = response.data;
       setProducts(productsData);
       
@@ -284,7 +339,7 @@ export default function ProductListingScreen({ navigation }) {
         traceabilityScore
       });
     } catch (error) {
-      console.error(error);
+      console.error('Error fetching products:', error);
       Alert.alert("Error", "Failed to fetch products");
     }
   };
@@ -301,6 +356,41 @@ export default function ProductListingScreen({ navigation }) {
     } else {
       Alert.alert("Navigation", "Going back to previous screen");
     }
+  };
+
+  const handleEditProduct = (product) => {
+    // Navigate to AddProduct screen with product data for editing
+    navigation.navigate('AddProduct', { product });
+  };
+
+  const handleDeleteProduct = (product) => {
+    Alert.alert(
+      "Delete Product",
+      `Are you sure you want to delete "${product.name}"? This action cannot be undone.`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const token = await AsyncStorage.getItem('token');
+              await axios.delete(`${apiConfig.baseURL}/products/${product.id}`, {
+                headers: { Authorization: `Bearer ${token}` }
+              });
+              Alert.alert("Success", "Product deleted successfully");
+              fetchProducts(); // Refresh the list
+            } catch (error) {
+              console.error('Error deleting product:', error);
+              Alert.alert("Error", "Failed to delete product. Please try again.");
+            }
+          }
+        }
+      ]
+    );
   };
 
   return (
@@ -460,6 +550,9 @@ export default function ProductListingScreen({ navigation }) {
               key={product.id || index}
               product={product}
               index={index}
+              userRole={userRole}
+              onEdit={handleEditProduct}
+              onDelete={handleDeleteProduct}
               onPress={() =>
                 navigation.navigate("ProductDetail", { productId: product.id })
               }
@@ -797,6 +890,31 @@ const styles = StyleSheet.create({
     color: "#374151",
     fontWeight: "600",
     flex: 1,
+  },
+  actionButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  editButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#F0FDF4",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
+  },
+  deleteButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#FEF2F2",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#FECACA",
   },
   viewButton: {
     flexDirection: "row",

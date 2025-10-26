@@ -115,12 +115,47 @@ const Product = {
     );
   },
 
-  update: (id, name, batch_code, description, callback) => {
-    db.query(
-      'UPDATE products SET name = ?, batch_code = ?, description = ? WHERE id = ?',
-      [name, batch_code, description, id],
-      callback
-    );
+  update: (id, name, batch_code, description, category, origin, harvest_date, expiry_date, product_image, qr_code_image, qr_code_data, callback) => {
+    // Build dynamic query based on what fields are provided
+    let query = 'UPDATE products SET name = ?, batch_code = ?, description = ?';
+    let params = [name, batch_code, description];
+    
+    if (category !== undefined) {
+      query += ', category = ?';
+      params.push(category);
+    }
+    if (origin !== undefined) {
+      query += ', origin = ?';
+      params.push(origin);
+    }
+    if (harvest_date !== undefined) {
+      query += ', harvest_date = ?';
+      params.push(harvest_date);
+    }
+    if (expiry_date !== undefined) {
+      query += ', expiry_date = ?';
+      params.push(expiry_date);
+    }
+    if (product_image !== undefined) {
+      query += ', product_image = ?';
+      params.push(product_image);
+    }
+    if (qr_code_image !== undefined) {
+      query += ', qr_code_image = ?';
+      params.push(qr_code_image);
+    }
+    if (qr_code_data !== undefined) {
+      query += ', qr_code_data = ?';
+      params.push(qr_code_data);
+    }
+    
+    query += ' WHERE id = ?';
+    params.push(id);
+    
+    console.log('Update query:', query);
+    console.log('Update params:', params);
+    
+    db.query(query, params, callback);
   },
 
   delete: (id, callback) => {
