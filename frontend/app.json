@@ -28,7 +28,15 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-barcode-scanner"
+      "expo-barcode-scanner",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos to save QR codes.",
+          "savePhotosPermission": "Allow $(PRODUCT_NAME) to save QR codes to your photo library.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ]
     ]
   }
 }

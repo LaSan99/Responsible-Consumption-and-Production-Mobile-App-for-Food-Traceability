@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -21,25 +21,65 @@ import { LinearGradient } from "expo-linear-gradient";
 const { width } = Dimensions.get("window");
 
 const ProductCard = ({ product, onPress, index }) => {
-  const fadeAnim = new Animated.Value(0);
-  const slideAnim = new Animated.Value(30);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
+    // Staggered entrance animation
+    Animated.sequence([
+      Animated.delay(index * 150),
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+
+    // Shimmer effect
+    const shimmerAnimation = Animated.loop(
+      Animated.timing(shimmerAnim, {
         toValue: 1,
-        duration: 400,
-        delay: index * 100,
+        duration: 2000,
+        useNativeDriver: true,
+      })
+    );
+    shimmerAnimation.start();
+
+    return () => shimmerAnimation.stop();
+  }, []);
+
+  const handlePress = () => {
+    // Pulse animation on press
+    Animated.sequence([
+      Animated.timing(pulseAnim, {
+        toValue: 0.95,
+        duration: 100,
         useNativeDriver: true,
       }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 400,
-        delay: index * 100,
+      Animated.timing(pulseAnim, {
+        toValue: 1,
+        duration: 100,
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+    
+    setTimeout(() => onPress(), 150);
+  };
 
   return (
     <Animated.View
@@ -47,7 +87,10 @@ const ProductCard = ({ product, onPress, index }) => {
         styles.productCard,
         {
           opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
+          transform: [
+            { translateY: slideAnim },
+            { scale: Animated.multiply(scaleAnim, pulseAnim) }
+          ],
         },
       ]}
     >
@@ -132,7 +175,7 @@ const ProductCard = ({ product, onPress, index }) => {
           </Text>
         </View>
 
-        <TouchableOpacity style={styles.viewButton} onPress={onPress}>
+        <TouchableOpacity style={styles.viewButton} onPress={handlePress}>
           <Text style={styles.viewButtonText}>Details</Text>
           <Ionicons name="arrow-forward" size={16} color="#fff" />
         </TouchableOpacity>
@@ -144,21 +187,102 @@ const ProductCard = ({ product, onPress, index }) => {
 export default function ProductListingScreen({ navigation }) {
   const [products, setProducts] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
-  const headerAnim = new Animated.Value(0);
+  const [analytics, setAnalytics] = useState({
+    totalProducts: 0,
+    categorizedProducts: 0,
+    productsWithOrigin: 0,
+    recentProducts: 0,
+    categoryDistribution: {},
+    traceabilityScore: 0
+  });
+  
+  // Animation states
+  const headerAnim = useRef(new Animated.Value(0)).current;
+  const statsAnim = useRef(new Animated.Value(0)).current;
+  const backgroundAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     fetchProducts();
-    Animated.timing(headerAnim, {
-      toValue: 1,
-      duration: 600,
-      useNativeDriver: true,
-    }).start();
+    
+    // Start animations
+    Animated.sequence([
+      Animated.timing(headerAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(statsAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Background animation
+    Animated.loop(
+      Animated.timing(backgroundAnim, {
+        toValue: 1,
+        duration: 3000,
+        useNativeDriver: true,
+      })
+    ).start();
+
+    // Pulse animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.05,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
   }, []);
 
   const fetchProducts = async () => {
     try {
       const response = await axios.get(`${apiConfig.baseURL}/products`);
-      setProducts(response.data);
+      const productsData = response.data;
+      setProducts(productsData);
+      
+      // Calculate analytics
+      const totalProducts = productsData.length;
+      const categorizedProducts = productsData.filter(p => p.category).length;
+      const productsWithOrigin = productsData.filter(p => p.origin).length;
+      const recentProducts = productsData.filter(p => {
+        const createdDate = new Date(p.created_at);
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        return createdDate > weekAgo;
+      }).length;
+      
+      // Category distribution
+      const categoryDistribution = {};
+      productsData.forEach(product => {
+        if (product.category) {
+          categoryDistribution[product.category] = (categoryDistribution[product.category] || 0) + 1;
+        }
+      });
+      
+      // Calculate traceability score
+      const traceabilityScore = Math.round(
+        ((categorizedProducts + productsWithOrigin) / (totalProducts * 2)) * 100
+      );
+      
+      setAnalytics({
+        totalProducts,
+        categorizedProducts,
+        productsWithOrigin,
+        recentProducts,
+        categoryDistribution,
+        traceabilityScore
+      });
     } catch (error) {
       console.error(error);
       Alert.alert("Error", "Failed to fetch products");
@@ -183,8 +307,24 @@ export default function ProductListingScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#059669" />
       
+      {/* Animated Background Elements */}
+      <Animated.View 
+        style={[
+          styles.backgroundPattern,
+          {
+            opacity: 0.1,
+          },
+        ]}
+      >
+        <View style={styles.patternCircle1} />
+        <View style={styles.patternCircle2} />
+        <View style={styles.patternCircle3} />
+        <View style={styles.patternCircle4} />
+      </Animated.View>
+      
+      {/* Fixed Header */}
       <LinearGradient
-        colors={["#10B981", "#059669"]}
+        colors={["#2E7D32", "#4CAF50", "#8BC34A"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
@@ -220,26 +360,9 @@ export default function ProductListingScreen({ navigation }) {
         </Animated.View>
       </LinearGradient>
 
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{products.length}</Text>
-          <Text style={styles.statLabel}>Total Products</Text>
-        </View>
-        <View style={[styles.statCard, styles.statCardMiddle]}>
-          <Text style={styles.statNumber}>
-            {products.filter((p) => p.category).length}
-          </Text>
-          <Text style={styles.statLabel}>Categorized</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>
-            {products.filter((p) => p.origin).length}
-          </Text>
-          <Text style={styles.statLabel}>With Origin</Text>
-        </View>
-      </View>
-
+      {/* Scrollable Content */}
       <ScrollView
+        style={styles.scrollContainer}
         contentContainerStyle={styles.scrollView}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -251,6 +374,78 @@ export default function ProductListingScreen({ navigation }) {
           />
         }
       >
+        {/* Stats Cards */}
+        <Animated.View 
+          style={[
+            styles.statsContainer,
+            {
+              opacity: statsAnim,
+            },
+          ]}
+        >
+          <View style={styles.statCard}>
+            <Ionicons name="cube" size={24} color="#4CAF50" style={styles.statIconTop} />
+            <Text style={styles.statNumber}>{analytics.totalProducts}</Text>
+            <Text style={styles.statLabel}>Total Products</Text>
+          </View>
+          
+          <View style={[styles.statCard, styles.statCardMiddle]}>
+            <Ionicons name="pricetag" size={24} color="#4CAF50" style={styles.statIconTop} />
+            <Text style={styles.statNumber}>{analytics.categorizedProducts}</Text>
+            <Text style={styles.statLabel}>Categorized</Text>
+          </View>
+          
+          <View style={styles.statCard}>
+            <Ionicons name="location" size={24} color="#4CAF50" style={styles.statIconTop} />
+            <Text style={styles.statNumber}>{analytics.productsWithOrigin}</Text>
+            <Text style={styles.statLabel}>With Origin</Text>
+          </View>
+        </Animated.View>
+
+        {/* Analytics Section */}
+        <Animated.View 
+          style={[
+            styles.analyticsContainer,
+            {
+              opacity: statsAnim,
+            },
+          ]}
+        >
+          <View style={styles.analyticsRow}>
+            <View style={styles.analyticsCard}>
+              <View style={styles.analyticsIconContainer}>
+                <Ionicons name="shield-checkmark" size={20} color="#4CAF50" />
+              </View>
+              <Text style={styles.analyticsNumber}>{analytics.traceabilityScore}%</Text>
+              <Text style={styles.analyticsText}>Traceability</Text>
+            </View>
+            
+            <View style={styles.analyticsCard}>
+              <View style={styles.analyticsIconContainer}>
+                <Ionicons name="trending-up" size={20} color="#4CAF50" />
+              </View>
+              <Text style={styles.analyticsNumber}>{analytics.recentProducts}</Text>
+              <Text style={styles.analyticsText}>Recent</Text>
+            </View>
+            
+            <View style={styles.analyticsCard}>
+              <View style={styles.analyticsIconContainer}>
+                <Ionicons name="apps" size={20} color="#4CAF50" />
+              </View>
+              <Text style={styles.analyticsNumber}>
+                {Object.keys(analytics.categoryDistribution).length}
+              </Text>
+              <Text style={styles.analyticsText}>Categories</Text>
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* Products Title */}
+        <View style={styles.productsHeader}>
+          <Text style={styles.productsTitle}>All Products</Text>
+          <Text style={styles.productsCount}>{products.length} items</Text>
+        </View>
+
         {products.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="cube-outline" size={64} color="#D1D5DB" />
@@ -279,12 +474,57 @@ export default function ProductListingScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: "#E8F5E9",
+  },
+  backgroundPattern: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 0,
+    backgroundColor: '#E8F5E9',
+  },
+  patternCircle1: {
+    position: 'absolute',
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+    top: -80,
+    right: -80,
+  },
+  patternCircle2: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(139, 195, 74, 0.12)',
+    bottom: -50,
+    left: -50,
+  },
+  patternCircle3: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(46, 125, 50, 0.1)',
+    top: '35%',
+    right: -20,
+  },
+  patternCircle4: {
+    position: 'absolute',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(76, 175, 80, 0.08)',
+    top: '55%',
+    left: -20,
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingTop: 8,
+    paddingBottom: 20,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
     shadowColor: "#10B981",
@@ -292,6 +532,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     shadowRadius: 16,
     elevation: 8,
+  },
+  scrollContainer: {
+    flex: 1,
   },
   headerContent: {
     flexDirection: "row",
@@ -341,56 +584,58 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: "row",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    gap: 10,
   },
   statCard: {
     flex: 1,
-    backgroundColor: "#fff",
-    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
     padding: 16,
     alignItems: "center",
     shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 8,
-    elevation: 1,
-    borderWidth: 1,
-    borderColor: "#F3F4F6",
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 0,
+  },
+  statIconTop: {
+    marginBottom: 8,
   },
   statCardMiddle: {
-    backgroundColor: "#ECFDF5",
-    borderColor: "#D1FAE5",
+    backgroundColor: "#F0FDF4",
   },
   statNumber: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "800",
     color: "#10B981",
     marginBottom: 4,
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: "#6B7280",
     fontWeight: "600",
     textTransform: "uppercase",
     letterSpacing: 0.5,
+    textAlign: 'center',
   },
   scrollView: {
-    padding: 20,
     paddingBottom: 30,
   },
   productCard: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    marginHorizontal: 16,
     marginBottom: 16,
     shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: "#F3F4F6",
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 0,
     overflow: "hidden",
   },
   productImageContainer: {
@@ -417,10 +662,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: "#ECFDF5",
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "#E8F5E9",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
@@ -444,10 +689,10 @@ const styles = StyleSheet.create({
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#ECFDF5",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
+    backgroundColor: "#E8F5E9",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
     gap: 4,
   },
   statusDot: {
@@ -476,9 +721,9 @@ const styles = StyleSheet.create({
   },
   infoItem: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
-    padding: 10,
-    borderRadius: 10,
+    backgroundColor: "#F5F5F5",
+    padding: 12,
+    borderRadius: 12,
     gap: 4,
   },
   infoLabel: {
@@ -535,9 +780,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   avatarPlaceholder: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     backgroundColor: "#10B981",
     alignItems: "center",
     justifyContent: "center",
@@ -556,16 +801,16 @@ const styles = StyleSheet.create({
   viewButton: {
     flexDirection: "row",
     backgroundColor: "#10B981",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 14,
     alignItems: "center",
     gap: 6,
     shadowColor: "#10B981",
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    elevation: 5,
   },
   viewButtonText: {
     color: "#fff",
@@ -589,5 +834,78 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#9CA3AF",
     textAlign: "center",
+  },
+  statIcon: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F0F8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  analyticsContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  analyticsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  analyticsCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 0,
+  },
+  analyticsIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  analyticsNumber: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#4CAF50',
+    marginBottom: 4,
+  },
+  analyticsText: {
+    fontSize: 10,
+    color: '#6B7280',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  productsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+  },
+  productsTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2c3e50',
+  },
+  productsCount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4CAF50',
   },
 });
